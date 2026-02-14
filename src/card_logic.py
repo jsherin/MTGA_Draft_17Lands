@@ -1,5 +1,6 @@
 """This module contains the functions that are used for processing the collected cards"""
 
+import re
 from itertools import combinations
 from dataclasses import dataclass, field
 import logging
@@ -179,15 +180,39 @@ class CardResult:
                         rated_colors.append(rating_data)
                     else:  # Field that's not a win rate (ALSA, IWD, etc)
                         result = card[constants.DATA_FIELD_DECK_COLORS][color][option]
-                        result = (
-                            constants.RESULT_UNKNOWN_STRING if result == 0.0 else result
-                        )
+                        if isinstance(result, (int, float)) and result != 0.0:
+                            result = round(result, 1)
+                        else:
+                            result = (
+                                constants.RESULT_UNKNOWN_STRING if result == 0.0 else result
+                            )
             if rated_colors:
                 result = sorted(rated_colors, key=field_process_sort, reverse=True)[0]
+                if option == constants.DATA_FIELD_GIHWR:
+                    result = self.__append_color_pair_gihwr(card, result)
         except Exception as error:
             logger.error(error)
 
         return result
+
+    def __append_color_pair_gihwr(self, card, primary_value):
+        """Append GIHWR for each two-color pair, ordered by highest winrate."""
+        try:
+            deck_colors = card.get(constants.DATA_FIELD_DECK_COLORS, {})
+            pair_entries = []
+            for pair in constants.TWO_COLOR_PAIRS:
+                if pair in deck_colors:
+                    gihwr = deck_colors[pair].get(constants.DATA_FIELD_GIHWR, 0.0)
+                    if gihwr and gihwr != 0.0:
+                        pair_entries.append((pair, gihwr))
+            # Sort by winrate descending so best-performing pairs appear first
+            pair_entries.sort(key=lambda x: x[1], reverse=True)
+            if pair_entries:
+                pair_values = [f"{pair}: {gihwr:.1f}" for pair, gihwr in pair_entries]
+                return f"{primary_value}  {' '.join(pair_values)}"
+        except Exception as error:
+            logger.error(error)
+        return primary_value
 
     def __format_win_rate(self, card, winrate_field, winrate_count, color):
         """The function will return a grade, rating, or win rate depending on the application's Result Format setting"""
@@ -199,6 +224,9 @@ class CardResult:
             result = self.__card_grade(card, winrate_field, winrate_count, color)
         else:
             result = card[constants.DATA_FIELD_DECK_COLORS][color][winrate_field]
+            # Round win rate percentages to 1 decimal place for display
+            if isinstance(result, (int, float)) and result != constants.RESULT_UNKNOWN_VALUE:
+                result = round(result, 1)
         result = (
             constants.RESULT_UNKNOWN_STRING
             if result == constants.RESULT_UNKNOWN_VALUE
@@ -881,6 +909,29 @@ def get_card_colors(mana_cost):
     except Exception as error:
         logger.error(error)
     return colors
+
+
+def format_mana_symbols(mana_cost):
+    """Format card colors as MTG mana symbol notation (e.g. {W}{U}) for display."""
+    if not mana_cost:
+        return ""
+    colors = list(
+        sorted(
+            get_card_colors(mana_cost).keys(),
+            key=constants.CARD_COLORS.index,
+        )
+    )
+    return "".join(f"{{{c}}}" for c in colors) + " "
+
+
+def strip_mana_prefix_from_name(display_name):
+    """Remove mana symbol prefix ({W}{U} etc.) from a displayed card name for matching."""
+    if not display_name:
+        return display_name
+    match = re.match(r"^(\{[WUBRG]\})*\s*", display_name)
+    if match:
+        return display_name[match.end() :].strip()
+    return display_name
 
 
 def color_splash(cards, colors, splash_threshold, configuration):

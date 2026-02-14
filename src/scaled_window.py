@@ -50,15 +50,48 @@ class ScaledWindow:
         scaled_value = int(value * self.scale_factor)
         return scaled_value
 
-    def _create_header(self, table_label, frame, height, font, headers, total_width, include_header, fixed_width, table_style, stretch_enabled):
-        """Configure the tkinter Treeview widget tables that are used to list draft data"""
+    def _create_header(
+        self,
+        table_label,
+        frame,
+        height,
+        font,
+        headers,
+        total_width,
+        include_header,
+        fixed_width,
+        table_style,
+        stretch_enabled,
+        include_mana_column=False,
+        mana_column_size=20,
+        allow_column_resize=False,
+    ):
+        """Configure the tkinter Treeview widget tables that are used to list draft data.
+        include_mana_column: when True, adds a tree column for mana symbol icons.
+        allow_column_resize: when True, users can drag column separators to resize."""
         header_labels = tuple(headers.keys())
-        show_header = "headings" if include_header else ""
+        show_header = (
+            "tree headings" if include_mana_column else ("headings" if include_header else "")
+        )
         column_stretch = tkinter.YES if stretch_enabled else tkinter.NO
-        list_box = Treeview(frame, columns=header_labels,
-                            show=show_header, style=table_style, height=height)
+        list_box = Treeview(
+            frame,
+            columns=header_labels,
+            show=show_header,
+            style=table_style,
+            height=height,
+        )
 
         try:
+            if include_mana_column:
+                list_box.column(
+                    "#0",
+                    width=mana_column_size,
+                    minwidth=mana_column_size,
+                    stretch=False,
+                    anchor=tkinter.W,
+                )
+
             for key, value in constants.ROW_TAGS_BW_DICT.items():
                 list_box.tag_configure(
                     key, font=(value[0], font, "bold"), background=value[1], foreground=value[2])
@@ -81,7 +114,7 @@ class ScaledWindow:
                 list_box.heading(column, text=column, anchor=tkinter.CENTER,
                                  command=lambda _col=column: self._sort_table_column(table_label, list_box, _col, True))
             list_box["show"] = show_header  # use after setting columns
-            if include_header:
+            if include_header and not allow_column_resize:
                 list_box.bind(
                     '<Button-1>', lambda event: self._disable_resizing(event, table=list_box))
             self.table_info[table_label] = TableInfo()
@@ -127,22 +160,37 @@ class ScaledWindow:
         if table.identify_region(event.x, event.y) == "separator":
             return "break"
 
-    def _identify_table_row_tag(self, colors_enabled, colors, index):
-        """Return the row color (black/white or card color) depending on the application settings"""
+    def _identify_table_row_tag(
+        self, colors_enabled, colors, index, use_mana_symbols_instead=False
+    ):
+        """Return the row color (black/white or card color) depending on the application settings.
+        When use_mana_symbols_instead is True, always use B&W alternating (mana symbols show color)."""
         tag = ""
-        if colors_enabled:
+        if colors_enabled and not use_mana_symbols_instead:
             tag = row_color_tag(colors)
         else:
-            tag = constants.BW_ROW_COLOR_ODD_TAG if index % 2 else constants.BW_ROW_COLOR_EVEN_TAG
+            tag = (
+                constants.BW_ROW_COLOR_ODD_TAG
+                if index % 2
+                else constants.BW_ROW_COLOR_EVEN_TAG
+            )
         return tag
 
-    def _identify_card_row_tag(self, configuration, card_data, count):
-        '''Wrapper function for setting the row color for a card'''
+    def _identify_card_row_tag(
+        self, configuration, card_data, count, use_mana_symbols_instead=True
+    ):
+        """Wrapper function for setting the row color for a card.
+        use_mana_symbols_instead: when True, use B&W rows (mana symbols displayed in name column)."""
         if constants.CARD_TYPE_LAND in card_data[constants.DATA_FIELD_TYPES]:
             colors = card_data[constants.DATA_FIELD_COLORS]
         else:
             colors = card_data[constants.DATA_FIELD_MANA_COST]
 
-        row_tag = self._identify_table_row_tag(configuration.card_colors_enabled, colors, count)
+        row_tag = self._identify_table_row_tag(
+            configuration.card_colors_enabled,
+            colors,
+            count,
+            use_mana_symbols_instead=use_mana_symbols_instead,
+        )
 
         return row_tag

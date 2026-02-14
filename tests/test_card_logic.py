@@ -115,7 +115,13 @@ def test_otj_grades(otj_premier, card_name, colors, field, expected_grade):
     card_data = data_list[0]
     result_list = results.return_results([card_data], [colors], [field])
 
-    assert result_list[0]["results"][0] == expected_grade
+    # GIHWR includes color pair breakdown; other fields match exactly
+    actual = result_list[0]["results"][0]
+    if field == constants.DATA_FIELD_GIHWR:
+        assert actual.startswith(expected_grade)
+        assert expected_grade in actual
+    else:
+        assert actual == expected_grade
 
 
 def test_export_draft_to_csv():

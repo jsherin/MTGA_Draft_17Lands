@@ -1174,9 +1174,16 @@ class ArenaScanner:
                     std_menu_key = normalize_color_string(filter_key)
                     if std_menu_key in ratings:
                         winrate = ratings[std_menu_key]
-                        deck_colors[filter_key] = (
-                            f"{deck_colors[filter_key]} ({winrate}%)"
+                        # For color entries that will have mana icons, show only the WR
+                        has_colors = any(
+                            c in constants.CARD_COLORS for c in std_menu_key
                         )
+                        if has_colors:
+                            deck_colors[filter_key] = f"{winrate}%"
+                        else:
+                            deck_colors[filter_key] = (
+                                f"{deck_colors[filter_key]} ({winrate}%)"
+                            )
         except Exception as error:
             logger.error(error)
 

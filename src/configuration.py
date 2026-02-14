@@ -50,7 +50,7 @@ class DeckType(BaseModel):
 class Settings(BaseModel):
     """This class holds UI settings"""
 
-    table_width: int = 270
+    table_width: int = 500
     column_2: str = constants.COLUMNS_OPTIONS_EXTRA_DICT[constants.COLUMN_2_DEFAULT]
     column_3: str = constants.COLUMNS_OPTIONS_EXTRA_DICT[constants.COLUMN_3_DEFAULT]
     column_4: str = constants.COLUMNS_OPTIONS_EXTRA_DICT[constants.COLUMN_4_DEFAULT]

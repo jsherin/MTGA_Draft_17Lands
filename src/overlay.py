@@ -50,7 +50,9 @@ from src.card_logic import (
     export_draft_to_csv,
     export_draft_to_json,
     copy_pack_to_clipboard,
+    strip_mana_prefix_from_name,
 )
+from src.mana_images import ManaImageCache
 from src.signals import SignalCalculator
 
 try:
@@ -70,8 +72,19 @@ def start_overlay():
     parser.add_argument("-f", "--file")
     parser.add_argument("-d", "--data")
     parser.add_argument("--step", action="store_true")
+    parser.add_argument(
+        "--test", action="store_true",
+        help="Launch with the bundled test Player.log from tests/data/",
+    )
 
     args = parser.parse_known_args()
+
+    # --test mode: use the bundled test log file
+    if args[0].test and not args[0].file:
+        args[0].file = path.join(
+            path.dirname(path.dirname(path.abspath(__file__))),
+            "tests", "data", "Player.log",
+        )
 
     # Ignore unknown arguments from ArgumentParser - pytest change
     overlay = Overlay(args[0])
@@ -97,26 +110,52 @@ def fixed_map(style, option):
     ]
 
 
-def control_table_column(table, column_fields, table_width=None):
-    """Hide disabled table columns"""
+def control_table_column(table, column_fields, table_width=None, has_mana_column=False):
+    """Hide disabled table columns. has_mana_column: preserve tree column for mana icons.
+    GIHWR column gets extra width for color-pair breakdown display."""
     visible_columns = {}
     last_field_index = 0
     for count, (key, value) in enumerate(column_fields.items()):
         if value != constants.DATA_FIELD_DISABLED:
             table.heading(key, text=value.upper())
-            # visible_columns.append(key)
             visible_columns[key] = count
             last_field_index = count
 
     table["displaycolumns"] = list(visible_columns.keys())
 
-    # Resize columns if there are fewer than 4
     if table_width:
         total_visible_columns = len(visible_columns)
         width = table_width
-        offset = 0
-        if total_visible_columns <= 4:
+
+        # Identify GIHWR columns so they get extra width for color-pair breakdown
+        gihwr_columns = {
+            col for col, field in column_fields.items()
+            if field == constants.DATA_FIELD_GIHWR
+        }
+
+        if gihwr_columns:
+            # GIHWR present: use custom proportions for any column count
+            gihwr_proportion = 0.55
+            n_stats = total_visible_columns - 1  # exclude Column1 (name)
+            name_proportion = max(0.25, 1.0 - gihwr_proportion * len(gihwr_columns)
+                                  - 0.12 * max(0, n_stats - len(gihwr_columns)))
+            remaining = 1.0 - name_proportion - gihwr_proportion * len(gihwr_columns)
+            other_count = max(1, n_stats - len(gihwr_columns))
+            other_proportion = remaining / other_count if remaining > 0 else 0.1
+
+            for column in table["displaycolumns"]:
+                if column == "Column1":
+                    prop = name_proportion
+                elif column in gihwr_columns:
+                    prop = gihwr_proportion
+                else:
+                    prop = other_proportion
+                column_width = min(int(math.ceil(prop * table_width)), width)
+                width -= column_width
+                table.column(column, width=column_width)
+        elif total_visible_columns <= 4:
             proportions = constants.TABLE_PROPORTIONS[total_visible_columns - 1]
+            offset = 0
             for column in table["displaycolumns"]:
                 column_width = min(
                     int(math.ceil(proportions[offset] * table_width)), width
@@ -124,8 +163,18 @@ def control_table_column(table, column_fields, table_width=None):
                 width -= column_width
                 offset += 1
                 table.column(column, width=column_width)
+        else:
+            # 5+ columns, no GIHWR: equal split after name
+            name_proportion = 0.34
+            n_stats = total_visible_columns - 1
+            other_proportion = (1.0 - name_proportion) / n_stats if n_stats else 0.1
+            for column in table["displaycolumns"]:
+                prop = name_proportion if column == "Column1" else other_proportion
+                column_width = min(int(math.ceil(prop * table_width)), width)
+                width -= column_width
+                table.column(column, width=column_width)
 
-            table["show"] = "headings"  # use after setting columns
+        table["show"] = "tree headings" if has_mana_column else "headings"
 
     return last_field_index, visible_columns
 
@@ -281,12 +330,13 @@ class Overlay(ScaledWindow):
         self.root = tkinter.Tk()
         self.root.title(f"Version {constants.APPLICATION_VERSION:2.2f}")
         self.configuration, _ = read_configuration()
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
         # self.last_download = 0
 
         self.__set_os_configuration()
 
         self.table_width = self._scale_value(self.configuration.settings.table_width)
+        self.mana_images = ManaImageCache(size=self._scale_value(16))
 
         self.listener = None
         self.configuration.settings.arena_log_location = search_arena_log_locations(
@@ -330,6 +380,8 @@ class Overlay(ScaledWindow):
 
         tkinter.Grid.columnconfigure(self.root, 0, weight=1)
         tkinter.Grid.columnconfigure(self.root, 1, weight=1)
+        tkinter.Grid.rowconfigure(self.root, 10, weight=1)
+        tkinter.Grid.rowconfigure(self.root, 12, weight=1)
         # Menu Bar
         self.menubar = tkinter.Menu(self.root)
         self.filemenu = tkinter.Menu(self.menubar, tearoff=0)
@@ -542,13 +594,13 @@ class Overlay(ScaledWindow):
         self.pack_table_frame = tkinter.Frame(self.root, width=10)
 
         headers = {
-            "Column1": {"width": 0.46, "anchor": tkinter.W},
-            "Column2": {"width": 0.18, "anchor": tkinter.CENTER},
-            "Column3": {"width": 0.18, "anchor": tkinter.CENTER},
-            "Column4": {"width": 0.18, "anchor": tkinter.CENTER},
-            "Column5": {"width": 0.18, "anchor": tkinter.CENTER},
-            "Column6": {"width": 0.18, "anchor": tkinter.CENTER},
-            "Column7": {"width": 0.18, "anchor": tkinter.CENTER},
+            "Column1": {"width": 0.40, "anchor": tkinter.W},
+            "Column2": {"width": 0.18, "anchor": tkinter.W},
+            "Column3": {"width": 0.18, "anchor": tkinter.W},
+            "Column4": {"width": 0.18, "anchor": tkinter.W},
+            "Column5": {"width": 0.18, "anchor": tkinter.W},
+            "Column6": {"width": 0.18, "anchor": tkinter.W},
+            "Column7": {"width": 0.18, "anchor": tkinter.W},
         }
 
         self.pack_table = self._create_header(
@@ -562,6 +614,9 @@ class Overlay(ScaledWindow):
             True,
             constants.TABLE_STYLE,
             False,
+            include_mana_column=True,
+            mana_column_size=self._scale_value(40),
+            allow_column_resize=True,
         )
 
         self.missing_frame = tkinter.Frame(self.root)
@@ -582,6 +637,9 @@ class Overlay(ScaledWindow):
             True,
             constants.TABLE_STYLE,
             False,
+            include_mana_column=True,
+            mana_column_size=self._scale_value(40),
+            allow_column_resize=True,
         )
 
         self.stat_frame = tkinter.Frame(self.root)
@@ -690,9 +748,9 @@ class Overlay(ScaledWindow):
         self.refresh_button_frame.grid(row=8, column=0, columnspan=2, sticky="nsew")
 
         self.status_frame.grid(row=9, column=0, columnspan=2, sticky="nsew")
-        self.pack_table_frame.grid(row=10, column=0, columnspan=2)
+        self.pack_table_frame.grid(row=10, column=0, columnspan=2, sticky="nsew")
         self.missing_frame.grid(row=11, column=0, columnspan=2, sticky="nsew")
-        self.missing_table_frame.grid(row=12, column=0, columnspan=2)
+        self.missing_table_frame.grid(row=12, column=0, columnspan=2, sticky="nsew")
         self.stat_frame.grid(row=13, column=0, columnspan=2, sticky="nsew")
         self.stat_table.grid(row=14, column=0, columnspan=2, sticky="nsew")
 
@@ -900,7 +958,29 @@ class Overlay(ScaledWindow):
                 background=fixed_map(style, "background"),
             )
 
-            style.configure("Treeview", rowheight=self._scale_value(25))
+            style.configure(
+                "Treeview",
+                rowheight=self._scale_value(25),
+                indent=0,
+            )
+
+            # Remove the expand/collapse indicator from the tree column (#0)
+            # so mana icons sit flush left with no empty space.
+            style.layout(
+                "Treeview.Item",
+                [
+                    (
+                        "Treeitem.padding",
+                        {
+                            "sticky": "nswe",
+                            "children": [
+                                ("Treeitem.image", {"side": "left", "sticky": ""}),
+                                ("Treeitem.text", {"sticky": "nswe"}),
+                            ],
+                        },
+                    )
+                ],
+            )
 
             style.configure("Taken.Treeview", rowheight=self._scale_value(25))
 
@@ -996,7 +1076,7 @@ class Overlay(ScaledWindow):
 
             # Update the filtered column header with the filtered colors
             last_field_index, visible_columns = control_table_column(
-                self.pack_table, fields, self.table_width
+                self.pack_table, fields, self.table_width, has_mana_column=True
             )
 
             if self.table_info["pack_table"].column in visible_columns:
@@ -1008,20 +1088,59 @@ class Overlay(ScaledWindow):
                     reverse=direction,
                 )
             else:
+                # Default sort: prefer GIHWR column, fall back to last visible
+                gihwr_index = next(
+                    (i for i, v in enumerate(fields.values())
+                     if v == constants.DATA_FIELD_GIHWR), last_field_index
+                )
                 result_list = sorted(
                     result_list,
-                    key=lambda d: field_process_sort(d["results"][last_field_index]),
+                    key=lambda d: field_process_sort(d["results"][gihwr_index]),
                     reverse=True,
                 )
 
+            self._pack_mana_refs = []
             for count, card in enumerate(result_list):
                 row_tag = self._identify_card_row_tag(
                     self.configuration.settings, card, count
                 )
                 field_values = tuple(card["results"])
-                self.pack_table.insert(
-                    "", index=count, iid=count, values=field_values, tag=(row_tag,)
-                )
+                insert_kw = {}
+                try:
+                    if constants.CARD_TYPE_LAND in card.get(
+                        constants.DATA_FIELD_TYPES, []
+                    ):
+                        mana_img = self.mana_images.get_for_card(
+                            card.get(constants.DATA_FIELD_COLORS, []),
+                            mana_cost_fallback=card.get(
+                                constants.DATA_FIELD_MANA_COST, ""
+                            ),
+                        )
+                    else:
+                        mana_img = self.mana_images.get_for_card(
+                            card.get(constants.DATA_FIELD_MANA_COST, "")
+                        )
+                    self._pack_mana_refs.append(mana_img)
+                    insert_kw = {"image": mana_img}
+                except Exception:
+                    pass
+                try:
+                    self.pack_table.insert(
+                        "",
+                        index=count,
+                        iid=count,
+                        values=field_values,
+                        tag=(row_tag,),
+                        **insert_kw,
+                    )
+                except tkinter.TclError:
+                    self.pack_table.insert(
+                        "",
+                        index=count,
+                        iid=count,
+                        values=field_values,
+                        tag=(row_tag,),
+                    )
             self.pack_table.bind(
                 "<<TreeviewSelect>>",
                 lambda event: self.__process_table_click(
@@ -1045,7 +1164,7 @@ class Overlay(ScaledWindow):
 
             # Update the filtered column header with the filtered colors
             last_field_index, visible_columns = control_table_column(
-                self.missing_table, fields, self.table_width
+                self.missing_table, fields, self.table_width, has_mana_column=True
             )
             if not missing_cards:
                 self.missing_table.config(height=0)
@@ -1081,10 +1200,14 @@ class Overlay(ScaledWindow):
                             reverse=direction,
                         )
                     else:
+                        gihwr_index = next(
+                            (i for i, v in enumerate(fields.values())
+                             if v == constants.DATA_FIELD_GIHWR), last_field_index
+                        )
                         result_list = sorted(
                             result_list,
                             key=lambda d: field_process_sort(
-                                d["results"][last_field_index]
+                                d["results"][gihwr_index]
                             ),
                             reverse=True,
                         )
@@ -1104,13 +1227,41 @@ class Overlay(ScaledWindow):
                                     else card["results"][index]
                                 )
                         field_values = tuple(card["results"])
-                        self.missing_table.insert(
-                            "",
-                            index=count,
-                            iid=count,
-                            values=field_values,
-                            tag=(row_tag,),
-                        )
+                        insert_kw = {}
+                        try:
+                            if constants.CARD_TYPE_LAND in card.get(
+                                constants.DATA_FIELD_TYPES, []
+                            ):
+                                mana_img = self.mana_images.get_for_card(
+                                    card.get(constants.DATA_FIELD_COLORS, []),
+                                    mana_cost_fallback=card.get(
+                                        constants.DATA_FIELD_MANA_COST, ""
+                                    ),
+                                )
+                            else:
+                                mana_img = self.mana_images.get_for_card(
+                                    card.get(constants.DATA_FIELD_MANA_COST, "")
+                                )
+                            insert_kw = {"image": mana_img}
+                        except Exception:
+                            pass
+                        try:
+                            self.missing_table.insert(
+                                "",
+                                index=count,
+                                iid=count,
+                                values=field_values,
+                                tag=(row_tag,),
+                                **insert_kw,
+                            )
+                        except tkinter.TclError:
+                            self.missing_table.insert(
+                                "",
+                                index=count,
+                                iid=count,
+                                values=field_values,
+                                tag=(row_tag,),
+                            )
                     self.missing_table.bind(
                         "<<TreeviewSelect>>",
                         lambda event: self.__process_table_click(
@@ -1192,9 +1343,13 @@ class Overlay(ScaledWindow):
                     reverse=direction,
                 )
             else:
+                gihwr_index = next(
+                    (i for i, v in enumerate(fields.values())
+                     if v == constants.DATA_FIELD_GIHWR), last_field_index
+                )
                 result_list = sorted(
                     result_list,
-                    key=lambda d: field_process_sort(d["results"][last_field_index]),
+                    key=lambda d: field_process_sort(d["results"][gihwr_index]),
                     reverse=True,
                 )
 
@@ -1236,7 +1391,7 @@ class Overlay(ScaledWindow):
                 fields = {
                     "Column1": constants.DATA_FIELD_NAME,
                     "Column2": constants.DATA_FIELD_COUNT,
-                    "Column3": constants.DATA_FIELD_COLORS,
+                    "Column3": constants.DATA_FIELD_DISABLED,
                     "Column4": (
                         constants.DATA_FIELD_ALSA
                         if self.taken_alsa_checkbox_value.get()
@@ -1344,10 +1499,14 @@ class Overlay(ScaledWindow):
                         reverse=direction,
                     )
                 else:
+                    gihwr_index = next(
+                        (i for i, v in enumerate(fields.values())
+                         if v == constants.DATA_FIELD_GIHWR), last_field_index
+                    )
                     result_list = sorted(
                         result_list,
                         key=lambda d: field_process_sort(
-                            d["results"][last_field_index]
+                            d["results"][gihwr_index]
                         ),
                         reverse=True,
                     )
@@ -1357,14 +1516,41 @@ class Overlay(ScaledWindow):
                 else:
                     self.taken_table.config(height=1)
 
+                self._taken_mana_refs = []
                 for count, card in enumerate(result_list):
                     field_values = tuple(card["results"])
                     row_tag = self._identify_card_row_tag(
                         self.configuration.settings, card, count
                     )
-                    self.taken_table.insert(
-                        "", index=count, iid=count, values=field_values, tag=(row_tag,)
-                    )
+                    insert_kw = {}
+                    try:
+                        if constants.CARD_TYPE_LAND in card.get(
+                            constants.DATA_FIELD_TYPES, []
+                        ):
+                            mana_img = self.mana_images.get_for_card(
+                                card.get(constants.DATA_FIELD_COLORS, []),
+                                mana_cost_fallback=card.get(
+                                    constants.DATA_FIELD_MANA_COST, ""
+                                ),
+                            )
+                        else:
+                            mana_img = self.mana_images.get_for_card(
+                                card.get(constants.DATA_FIELD_MANA_COST, "")
+                            )
+                        self._taken_mana_refs.append(mana_img)
+                        insert_kw = {"image": mana_img}
+                    except Exception:
+                        pass
+                    try:
+                        self.taken_table.insert(
+                            "", index=count, iid=count, values=field_values,
+                            tag=(row_tag,), **insert_kw
+                        )
+                    except tkinter.TclError:
+                        self.taken_table.insert(
+                            "", index=count, iid=count, values=field_values,
+                            tag=(row_tag,)
+                        )
                 self.taken_table.bind(
                     "<<TreeviewSelect>>",
                     lambda event: self.__process_table_click(
@@ -1697,11 +1883,28 @@ class Overlay(ScaledWindow):
                 self.column_6_list.append(key)
                 self.column_7_list.append(key)
 
+            # Keep references to menu images so they aren't garbage collected
+            self._deck_filter_menu_images = []
             for key in self.deck_colors:
-                deck_colors_menu.add_command(
-                    label=key,
-                    command=lambda value=key: self.deck_filter_selection.set(value),
-                )
+                # Extract colors from the filter value (e.g. "WU"), not the display label
+                filter_value = self.deck_colors[key]
+                color_chars = [c for c in filter_value if c in constants.CARD_COLORS]
+                if color_chars:
+                    menu_img = self.mana_images.get_compound(color_chars)
+                    self._deck_filter_menu_images.append(menu_img)
+                    # Show only the win rate beside the icon; hide raw color text
+                    menu_label = key if "%" in key else " "
+                    deck_colors_menu.add_command(
+                        label=menu_label,
+                        image=menu_img,
+                        compound="left",
+                        command=lambda value=key: self.deck_filter_selection.set(value),
+                    )
+                else:
+                    deck_colors_menu.add_command(
+                        label=key,
+                        command=lambda value=key: self.deck_filter_selection.set(value),
+                    )
                 self.deck_filter_list.append(key)
 
         except Exception as error:
@@ -2362,12 +2565,12 @@ class Overlay(ScaledWindow):
 
             headers = {
                 "Column1": {"width": 0.46, "anchor": tkinter.W},
-                "Column2": {"width": 0.18, "anchor": tkinter.CENTER},
-                "Column3": {"width": 0.18, "anchor": tkinter.CENTER},
-                "Column4": {"width": 0.18, "anchor": tkinter.CENTER},
-                "Column5": {"width": 0.18, "anchor": tkinter.CENTER},
-                "Column6": {"width": 0.18, "anchor": tkinter.CENTER},
-                "Column7": {"width": 0.18, "anchor": tkinter.CENTER},
+                "Column2": {"width": 0.18, "anchor": tkinter.W},
+                "Column3": {"width": 0.18, "anchor": tkinter.W},
+                "Column4": {"width": 0.18, "anchor": tkinter.W},
+                "Column5": {"width": 0.18, "anchor": tkinter.W},
+                "Column6": {"width": 0.18, "anchor": tkinter.W},
+                "Column7": {"width": 0.18, "anchor": tkinter.W},
             }
 
             compare_table_frame = tkinter.Frame(popup)
@@ -2448,16 +2651,16 @@ class Overlay(ScaledWindow):
 
             headers = {
                 "Column1": {"width": 0.40, "anchor": tkinter.W},
-                "Column2": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column3": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column4": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column5": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column6": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column7": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column8": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column9": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column10": {"width": 0.20, "anchor": tkinter.CENTER},
-                "Column11": {"width": 0.20, "anchor": tkinter.CENTER},
+                "Column2": {"width": 0.20, "anchor": tkinter.W},
+                "Column3": {"width": 0.20, "anchor": tkinter.W},
+                "Column4": {"width": 0.20, "anchor": tkinter.W},
+                "Column5": {"width": 0.20, "anchor": tkinter.W},
+                "Column6": {"width": 0.20, "anchor": tkinter.W},
+                "Column7": {"width": 0.20, "anchor": tkinter.W},
+                "Column8": {"width": 0.20, "anchor": tkinter.W},
+                "Column9": {"width": 0.20, "anchor": tkinter.W},
+                "Column10": {"width": 0.20, "anchor": tkinter.W},
+                "Column11": {"width": 0.20, "anchor": tkinter.W},
             }
 
             taken_table_frame = tkinter.Frame(popup)
@@ -2476,6 +2679,8 @@ class Overlay(ScaledWindow):
                 True,
                 "Taken.Treeview",
                 False,
+                include_mana_column=True,
+                mana_column_size=self._scale_value(40),
             )
             self.taken_table.config(yscrollcommand=taken_scrollbar.set)
             taken_scrollbar.config(command=self.taken_table.yview)
@@ -2499,8 +2704,30 @@ class Overlay(ScaledWindow):
                 *taken_filter_list,
                 style="All.TMenubutton",
             )
-            menu = self.root.nametowidget(taken_option["menu"])
-            menu.config(font=self.fonts_dict["All.TMenubutton"])
+            taken_menu = self.root.nametowidget(taken_option["menu"])
+            taken_menu.config(font=self.fonts_dict["All.TMenubutton"])
+
+            # Add mana icons to taken filter menu (matching the main deck filter)
+            self._taken_filter_menu_images = []
+            taken_menu.delete(0, "end")
+            for key in self.deck_colors:
+                filter_value = self.deck_colors[key]
+                color_chars = [c for c in filter_value if c in constants.CARD_COLORS]
+                if color_chars:
+                    menu_img = self.mana_images.get_compound(color_chars)
+                    self._taken_filter_menu_images.append(menu_img)
+                    menu_label = key if "%" in key else " "
+                    taken_menu.add_command(
+                        label=menu_label,
+                        image=menu_img,
+                        compound="left",
+                        command=lambda value=key: self.taken_filter_selection.set(value),
+                    )
+                else:
+                    taken_menu.add_command(
+                        label=key,
+                        command=lambda value=key: self.taken_filter_selection.set(value),
+                    )
 
             type_checkbox_frame = tkinter.Frame(
                 popup, highlightbackground="white", highlightthickness=2
@@ -3641,9 +3868,12 @@ class Overlay(ScaledWindow):
         """Creates the card tooltip when a table row is clicked"""
         color_dict = {}
         for item in table.selection():
-            card_name = table.item(item, "value")[0]
+            display_name = table.item(item, "value")[0]
+            display_name = (
+                display_name if display_name[0] != "*" else display_name[1:]
+            )
+            card_name = strip_mana_prefix_from_name(display_name)
             for card in card_list:
-                card_name = card_name if card_name[0] != "*" else card_name[1:]
                 if card_name == card[constants.DATA_FIELD_NAME]:
                     try:
                         for color in selected_color:
