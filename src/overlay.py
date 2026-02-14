@@ -339,11 +339,12 @@ class Overlay(ScaledWindow):
         self.mana_images = ManaImageCache(size=self._scale_value(16))
 
         self.listener = None
+        self._test_mode = getattr(args, "test", False)
         self.configuration.settings.arena_log_location = search_arena_log_locations(
             [args.file, self.configuration.settings.arena_log_location]
         )
 
-        if self.configuration.settings.arena_log_location:
+        if self.configuration.settings.arena_log_location and not self._test_mode:
             write_configuration(self.configuration)
         self.arena_file = self.configuration.settings.arena_log_location
 
