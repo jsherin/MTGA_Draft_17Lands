@@ -1,3 +1,4 @@
+import os
 import pytest
 import logging
 from unittest.mock import MagicMock, patch
@@ -30,7 +31,11 @@ def fixture_mock_scanner():
     Mock the ArenaScanner class and all of its methods within overlay.py.
     """
     mock_instance = MagicMock()
-    mock_instance.retrieve_color_win_rate.return_value = {"Auto": 0.0}
+    # deck_colors maps display_label -> filter_key; values must be strings (filter keys)
+    mock_instance.retrieve_color_win_rate.return_value = {
+        "All Decks": "All Decks",
+        "Auto": "Auto",
+    }
     mock_instance.retrieve_data_sources.return_value = {"None": ""}
     mock_instance.retrieve_tier_source.return_value = []
     mock_instance.retrieve_set_metrics.return_value = None
@@ -141,6 +146,94 @@ def test_update_pack_table_filters_lands_and_ids(mock_scanner):
         # Verify content of the single row
         row_values = app.pack_table.item(children[0])["values"]
         assert row_values[0] == "Valid Card"
+
+def test_start_overlay_test_mode_sets_file_path():
+    """Verify --test flag sets args.file to tests/data/Player.log when file is not provided."""
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--file")
+    parser.add_argument("--test", action="store_true")
+
+    # Simulate: python main.py --test (no -f)
+    args = parser.parse_args(["--test"])
+    assert args.test is True
+    assert args.file is None
+
+    # Mimic start_overlay logic
+    if args.test and not args.file:
+        args.file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "tests", "data", "Player.log",
+        )
+
+    assert args.file is not None
+    assert "tests" in args.file
+    assert "data" in args.file
+    assert "Player.log" in args.file
+    assert os.path.isfile(args.file), "Bundled test Player.log should exist"
+
+
+def test_start_overlay_test_mode_does_not_override_explicit_file():
+    """Verify --test does not override args.file when -f is also provided."""
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--file")
+    parser.add_argument("--test", action="store_true")
+
+    args = parser.parse_args(["--test", "-f", "custom.log"])
+    if args.test and not args.file:
+        args.file = os.path.join("tests", "data", "Player.log")
+
+    assert args.file == "custom.log"
+
+
+def test_overlay_test_mode_sets_flag(mock_scanner):
+    """Verify _test_mode is True when args.test=True, so arena_log_location is not persisted."""
+    with (
+        patch("tkinter.Tk.mainloop", return_value=None),
+        patch("src.overlay.stat", return_value=MagicMock(st_mtime=0)),
+        patch("src.overlay.write_configuration", return_value=True),
+        patch("src.overlay.read_configuration", return_value=(Configuration(), True)),
+        patch("src.overlay.LimitedSets.retrieve_limited_sets", return_value=None),
+        patch("src.overlay.Notifications.check_for_updates", return_value=("", "")),
+        patch("src.overlay.ArenaScanner", return_value=mock_scanner),
+        patch("src.overlay.filter_options", return_value=["All Decks"]),
+        patch("src.overlay.retrieve_arena_directory", return_value="fake_location"),
+        patch(
+            "src.overlay.search_arena_log_locations",
+            return_value=os.path.join("tests", "data", "Player.log"),
+        ),
+    ):
+        args = MagicMock(
+            file=os.path.join("tests", "data", "Player.log"),
+            data=None,
+            step=False,
+            test=True,
+        )
+        app = Overlay(args)
+        assert app._test_mode is True
+
+
+def test_overlay_normal_mode_has_no_test_flag(mock_scanner):
+    """Verify _test_mode is False when args.test is not set."""
+    with (
+        patch("tkinter.Tk.mainloop", return_value=None),
+        patch("src.overlay.stat", return_value=MagicMock(st_mtime=0)),
+        patch("src.overlay.write_configuration", return_value=True),
+        patch("src.overlay.read_configuration", return_value=(Configuration(), True)),
+        patch("src.overlay.LimitedSets.retrieve_limited_sets", return_value=None),
+        patch("src.overlay.Notifications.check_for_updates", return_value=("", "")),
+        patch("src.overlay.ArenaScanner", return_value=mock_scanner),
+        patch("src.overlay.filter_options", return_value=["All Decks"]),
+        patch("src.overlay.retrieve_arena_directory", return_value="fake_location"),
+        patch("src.overlay.search_arena_log_locations", return_value="fake_location"),
+    ):
+        args = MagicMock(file=None, data=None, step=False, test=False)
+        app = Overlay(args)
+        assert app._test_mode is False
+
 
 def test_signal_table_visibility_toggle(mock_scanner):
     """

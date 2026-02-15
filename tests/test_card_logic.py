@@ -4,11 +4,15 @@ import json
 from src import constants
 from src.set_metrics import SetMetrics
 from src.configuration import Configuration, Settings
-from src.card_logic import CardResult
+from src.card_logic import (
+    CardResult,
+    export_draft_to_csv,
+    export_draft_to_json,
+    field_process_sort,
+)
 from src.dataset import Dataset
 from src.tier_list import TierList, Meta, Rating
 from unittest.mock import MagicMock
-from src.card_logic import export_draft_to_csv, export_draft_to_json
 
 # 17Lands OTJ data from 2024-4-16 to 2024-5-3
 OTJ_PREMIER_SNAPSHOT = os.path.join(
@@ -115,10 +119,9 @@ def test_otj_grades(otj_premier, card_name, colors, field, expected_grade):
     card_data = data_list[0]
     result_list = results.return_results([card_data], [colors], [field])
 
-    # GIHWR includes color pair breakdown; other fields match exactly
+    # GIHWR includes color pair breakdown; when filter is active, format is "WG: A-  ..."
     actual = result_list[0]["results"][0]
     if field == constants.DATA_FIELD_GIHWR:
-        assert actual.startswith(expected_grade)
         assert expected_grade in actual
     else:
         assert actual == expected_grade
@@ -172,6 +175,143 @@ def test_export_draft_to_json():
     data = json.loads(json_output)
 
     assert data[0]["Cards"][0]["Picked"] == True
+
+
+def test_gihwr_color_pairs_sorted_by_winrate(card_result):
+    """Verify GIHWR color pair breakdown is ordered by highest winrate first."""
+    card = {
+        constants.DATA_FIELD_NAME: "Test Card",
+        constants.DATA_FIELD_DECK_COLORS: {
+            "All Decks": {constants.DATA_FIELD_GIHWR: 55.0},
+            "WU": {constants.DATA_FIELD_GIHWR: 51.2},
+            "UB": {constants.DATA_FIELD_GIHWR: 58.7},
+            "BR": {constants.DATA_FIELD_GIHWR: 53.1},
+        },
+    }
+    result_list = card_result.return_results(
+        [card], ["All Decks"], [constants.DATA_FIELD_GIHWR]
+    )
+    actual = result_list[0]["results"][0]
+    # Pairs should be ordered: UB (58.7) > BR (53.1) > WU (51.2)
+    assert "UB: 58.7" in actual
+    assert "BR: 53.1" in actual
+    assert "WU: 51.2" in actual
+    u_idx = actual.index("UB:")
+    br_idx = actual.index("BR:")
+    wu_idx = actual.index("WU:")
+    assert u_idx < br_idx < wu_idx
+
+
+def test_gihwr_ordering_when_filter_selected(card_result):
+    """Verify GIHWR when filter is active: filter value on left, other pairs by winrate, AD at end."""
+    card = {
+        constants.DATA_FIELD_NAME: "Test Card",
+        constants.DATA_FIELD_DECK_COLORS: {
+            "All Decks": {constants.DATA_FIELD_GIHWR: 54.0},
+            "WU": {constants.DATA_FIELD_GIHWR: 52.0},
+            "UB": {constants.DATA_FIELD_GIHWR: 58.7},
+            "BR": {constants.DATA_FIELD_GIHWR: 53.1},
+            "BG": {constants.DATA_FIELD_GIHWR: 51.0},
+        },
+    }
+    # Filter = WU (single color filter)
+    result_list = card_result.return_results(
+        [card], ["WU"], [constants.DATA_FIELD_GIHWR]
+    )
+    actual = result_list[0]["results"][0]
+    # Left: WU: 52.0
+    assert actual.startswith("WU: 52.0")
+    # Other pairs sorted by winrate desc: UB > BR > BG
+    assert "UB: 58.7" in actual
+    assert "BR: 53.1" in actual
+    assert "BG: 51.0" in actual
+    ub_idx = actual.index("UB:")
+    br_idx = actual.index("BR:")
+    bg_idx = actual.index("BG:")
+    assert ub_idx < br_idx < bg_idx
+    # AD (All Decks) at end
+    assert "AD: 54.0" in actual
+    ad_idx = actual.index("AD:")
+    assert ad_idx > bg_idx
+
+
+def test_field_process_sort_filter_format_percentage():
+    """Verify field_process_sort extracts primary value for percentage format when filter active."""
+    # "WU: 55.0  UB: 58.7 BR: 53.1 AD: 54.2" -> sort by 55.0 (filter's GIHWR)
+    assert field_process_sort("WU: 55.0  UB: 58.7 BR: 53.1 AD: 54.2") == 55.0
+
+
+def test_field_process_sort_filter_format_grade():
+    """Verify field_process_sort extracts primary value for grade format when filter active."""
+    # "WU: A-  UB: B+ BR: B AD: A-" -> sort by A- grade (12 in GRADE_ORDER_DICT)
+    assert field_process_sort("WU: A-  UB: B+ BR: B AD: A-") == 12.0
+
+
+def test_field_process_sort_all_decks_format():
+    """Verify field_process_sort handles All Decks format (primary number first)."""
+    assert field_process_sort("55.0  UB: 58.7 BR: 53.1 WU: 51.2") == 55.0
+
+
+def test_field_process_sort_all_decks_grade_format():
+    """Verify field_process_sort handles All Decks + grade format (primary grade first)."""
+    # "A-  UB: 58.7 BR: 56.2 WU: 51.2" -> sort by A- (12 in GRADE_ORDER_DICT)
+    assert field_process_sort("A-  UB: 58.7 BR: 56.2 WU: 51.2") == 12.0
+
+
+def test_field_process_sort_grade_order_ranking():
+    """Verify grade order: A+ > A > A- > B+ > B when sorting descending."""
+    gihwr_values = [
+        "B  UB: 55.0 BR: 54.0",
+        "A-  UB: 58.7 BR: 56.2",
+        "B+  UB: 57.0 BR: 55.0",
+        "A  UB: 59.0 BR: 57.0",
+        "A+  UB: 60.0 BR: 58.0",
+    ]
+    # Sort by field_process_sort descending (best first)
+    sorted_desc = sorted(gihwr_values, key=field_process_sort, reverse=True)
+    # Expected order: A+ (14) > A (13) > A- (12) > B+ (11) > B (10)
+    assert sorted_desc[0].startswith("A+")
+    assert sorted_desc[1].startswith("A ")
+    assert sorted_desc[2].startswith("A-")
+    assert sorted_desc[3].startswith("B+")
+    assert sorted_desc[4].startswith("B ")
+
+
+def test_win_rate_rounded_to_one_decimal(card_result):
+    """Verify win rate percentages are rounded to 1 decimal place."""
+    card = {
+        constants.DATA_FIELD_NAME: "Test Card",
+        constants.DATA_FIELD_DECK_COLORS: {
+            "All Decks": {constants.DATA_FIELD_GIHWR: 54.789},
+        },
+    }
+    config = Configuration(
+        settings=Settings(result_format=constants.RESULT_FORMAT_WIN_RATE)
+    )
+    results = CardResult(SetMetrics(None), None, config, 1)
+    result_list = results.return_results(
+        [card], ["All Decks"], [constants.DATA_FIELD_GIHWR]
+    )
+    actual = result_list[0]["results"][0]
+    assert actual == 54.8 or "54.8" in str(actual)
+
+
+def test_filter_fields_alsa_rounded_to_one_decimal(card_result):
+    """Verify non-win-rate fields (ALSA, IWD, ATA) are rounded to 1 decimal."""
+    card = {
+        constants.DATA_FIELD_NAME: "Test Card",
+        constants.DATA_FIELD_DECK_COLORS: {
+            "All Decks": {
+                constants.DATA_FIELD_GIHWR: 55.0,
+                constants.DATA_FIELD_ALSA: 2.345,
+            },
+        },
+    }
+    result_list = card_result.return_results(
+        [card], ["All Decks"], [constants.DATA_FIELD_ALSA]
+    )
+    actual = result_list[0]["results"][0]
+    assert actual == 2.3
 
 
 def test_export_draft_to_csv_edge_cases():

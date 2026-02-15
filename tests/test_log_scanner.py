@@ -1849,6 +1849,7 @@ def test_otj_premier_p1p1_ocr_disabled(mock_screenshot, mock_ocr, function_scann
 def test_scanner_retrieve_color_win_rate_mismatch_handling():
     """
     Verify that ArenaScanner correctly maps dataset keys to UI labels even if they are stored differently.
+    Color entries show only win rate (e.g. "55.5%") since mana icons provide color context.
     """
     scanner = ArenaScanner("log.txt", MagicMock(), retrieve_unknown=False)
 
@@ -1857,17 +1858,30 @@ def test_scanner_retrieve_color_win_rate_mismatch_handling():
         return_value={"WG": 55.5, "WR": 60.0}
     )
 
-    # Mock constants to simulate the issue: DECK_FILTERS has "GW" (non-standard), data has "WG"
+    # Mock constants: DECK_FILTERS has "GW" (non-standard), data has "WG"
     with patch("src.constants.DECK_FILTERS", ["GW", "WR", "All Decks"]):
         deck_colors = scanner.retrieve_color_win_rate("Colors")
 
-        # The key in the returned dict is the UI Label.
-        # Since the code normalizes "GW" to "WG", the label becomes "WG (55.5%)"
-        expected_label = "WG (55.5%)"
+        # Color entries show only win rate (mana icons in dropdown provide color)
+        assert "55.5%" in deck_colors
+        assert deck_colors["55.5%"] == "GW"
+        assert "60.0%" in deck_colors
+        assert deck_colors["60.0%"] == "WR"
 
-        # Verify the mapping exists: { Label : Original Filter Key }
-        assert expected_label in deck_colors
-        assert deck_colors[expected_label] == "GW"
+
+def test_scanner_retrieve_color_win_rate_non_color_entries_keep_label():
+    """Verify All Decks and Auto entries keep full label with win rate in parens."""
+    scanner = ArenaScanner("log.txt", MagicMock(), retrieve_unknown=False)
+    scanner.set_data.get_color_ratings = MagicMock(
+        return_value={"All Decks": 53.2, "Auto": 52.1}
+    )
+
+    with patch("src.constants.DECK_FILTERS", ["All Decks", "Auto"]):
+        deck_colors = scanner.retrieve_color_win_rate("Colors")
+
+        # Non-color entries show label + (winrate%)
+        assert "All Decks (53.2%)" in deck_colors
+        assert "Auto (52.1%)" in deck_colors
 
 
 def test_draft_history_recording(function_scanner):

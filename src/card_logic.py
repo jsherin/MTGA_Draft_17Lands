@@ -317,16 +317,28 @@ def field_process_sort(field_value):
             if first_part in ("NA", constants.RESULT_UNKNOWN_STRING):
                 processed_value = SORT_UNKNOWN
             elif first_part.endswith(":") and len(parts) >= 2:
-                # "WU: 58.1" or "AD: 57.0" - use the number after the colon
+                # "WU: 58.1" or "AD: 57.0" or "WU: A-" (grade format) - use value after the colon
                 try:
                     processed_value = float(parts[1])
                 except (ValueError, TypeError):
-                    processed_value = SORT_UNKNOWN
+                    if parts[1] in constants.GRADE_ORDER_DICT:
+                        processed_value = float(constants.GRADE_ORDER_DICT[parts[1]])
+                    else:
+                        processed_value = SORT_UNKNOWN
             else:
                 try:
                     processed_value = float(first_part)
                 except (ValueError, TypeError):
-                    processed_value = SORT_UNKNOWN
+                    # Match grade: try as-is, or with trailing space (e.g. "A" -> "A ")
+                    grade_key = (
+                        first_part if first_part in constants.GRADE_ORDER_DICT
+                        else (first_part + " ") if (first_part + " ") in constants.GRADE_ORDER_DICT
+                        else None
+                    )
+                    if grade_key:
+                        processed_value = float(constants.GRADE_ORDER_DICT[grade_key])
+                    else:
+                        processed_value = SORT_UNKNOWN
     except (ValueError, TypeError):
         pass
     return processed_value
