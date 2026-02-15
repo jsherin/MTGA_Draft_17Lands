@@ -102,6 +102,9 @@ class ManaImageCache:
                         else 99
                     ),
                 )
+            if not colors:
+                # Explicitly colorless (colors=[] from dataset)
+                return self.get_single("C")
         else:
             cost_colors = get_card_colors(mana_cost_or_colors or "").keys()
             colors = sorted(
@@ -109,7 +112,8 @@ class ManaImageCache:
                 key=constants.CARD_COLORS.index,
             )
         if not colors:
-            return self._get_empty()
+            # Colorless cards (no WUBRG in cost) - show C.png
+            return self.get_single("C")
         return self.get_compound(colors)
 
 

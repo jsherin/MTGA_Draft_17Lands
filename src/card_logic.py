@@ -189,30 +189,46 @@ class CardResult:
             if rated_colors:
                 result = sorted(rated_colors, key=field_process_sort, reverse=True)[0]
                 if option == constants.DATA_FIELD_GIHWR:
-                    result = self.__append_color_pair_gihwr(card, result)
+                    result = self.__append_color_pair_gihwr(card, result, colors)
         except Exception as error:
             logger.error(error)
 
         return result
 
-    def __append_color_pair_gihwr(self, card, primary_value):
-        """Append GIHWR for each two-color pair, ordered by highest winrate."""
+    def __append_color_pair_gihwr(self, card, primary_value, colors):
+        """Left: current filter's GIHWR (with label when filter active). Right: other color pairs, AD at end."""
         try:
             deck_colors = card.get(constants.DATA_FIELD_DECK_COLORS, {})
+            # Current filter (e.g. "WU") - exclude from right-side list to avoid duplication
+            current_filter = (
+                colors[0] if colors and len(colors) == 1
+                and colors[0] != constants.FILTER_OPTION_ALL_DECKS
+                else None
+            )
+            left_value = primary_value
+            if current_filter:
+                left_value = f"{current_filter}: {primary_value}"
             pair_entries = []
             for pair in constants.TWO_COLOR_PAIRS:
-                if pair in deck_colors:
+                if pair in deck_colors and pair != current_filter:
                     gihwr = deck_colors[pair].get(constants.DATA_FIELD_GIHWR, 0.0)
                     if gihwr and gihwr != 0.0:
                         pair_entries.append((pair, gihwr))
             # Sort by winrate descending so best-performing pairs appear first
             pair_entries.sort(key=lambda x: x[1], reverse=True)
-            if pair_entries:
-                pair_values = [f"{pair}: {gihwr:.1f}" for pair, gihwr in pair_entries]
-                return f"{primary_value}  {' '.join(pair_values)}"
+            pair_values = [f"{pair}: {gihwr:.1f}" for pair, gihwr in pair_entries]
+            # When filter is active, append All Decks (AD) at the end
+            if current_filter and constants.FILTER_OPTION_ALL_DECKS in deck_colors:
+                ad_gihwr = deck_colors[constants.FILTER_OPTION_ALL_DECKS].get(
+                    constants.DATA_FIELD_GIHWR, 0.0
+                )
+                if ad_gihwr and ad_gihwr != 0.0:
+                    pair_values.append(f"AD: {ad_gihwr:.1f}")
+            if pair_values:
+                return f"{left_value}  {' '.join(pair_values)}"
         except Exception as error:
             logger.error(error)
-        return primary_value
+        return left_value
 
     def __format_win_rate(self, card, winrate_field, winrate_count, color):
         """The function will return a grade, rating, or win rate depending on the application's Result Format setting"""
@@ -278,18 +294,40 @@ class CardResult:
 
 
 def field_process_sort(field_value):
-    """This function collects the numeric order of a letter grade for the purpose of sorting"""
-    processed_value = field_value
+    """This function collects the numeric order of a letter grade for the purpose of sorting.
+    Always returns a float for consistent comparison (avoids str vs int TypeError in sort).
+    Uses -1.0 for unknown/NA so they sort to the bottom when ordering descending."""
+    SORT_UNKNOWN = -1.0  # Sorts below 0% so cards with no data appear last
+    processed_value = SORT_UNKNOWN
 
     try:
         # Remove the tier asterisks before sorting
         if isinstance(field_value, str):
-            field_value = field_value.replace("*", "")
+            field_value = field_value.replace("*", "").strip()
         if field_value in constants.GRADE_ORDER_DICT:
-            processed_value = constants.GRADE_ORDER_DICT[field_value]
-        elif field_value == constants.RESULT_UNKNOWN_STRING:
-            processed_value = constants.RESULT_UNKNOWN_VALUE
-    except ValueError:
+            processed_value = float(constants.GRADE_ORDER_DICT[field_value])
+        elif field_value == constants.RESULT_UNKNOWN_STRING or field_value == "NA":
+            processed_value = SORT_UNKNOWN
+        elif isinstance(field_value, (int, float)):
+            processed_value = float(field_value)
+        elif isinstance(field_value, str):
+            parts = field_value.split()
+            # Primary value: first token, or second if first is "LABEL:" (e.g. "WU: 58.1  UB: 56.2")
+            first_part = parts[0] if parts else ""
+            if first_part in ("NA", constants.RESULT_UNKNOWN_STRING):
+                processed_value = SORT_UNKNOWN
+            elif first_part.endswith(":") and len(parts) >= 2:
+                # "WU: 58.1" or "AD: 57.0" - use the number after the colon
+                try:
+                    processed_value = float(parts[1])
+                except (ValueError, TypeError):
+                    processed_value = SORT_UNKNOWN
+            else:
+                try:
+                    processed_value = float(first_part)
+                except (ValueError, TypeError):
+                    processed_value = SORT_UNKNOWN
+    except (ValueError, TypeError):
         pass
     return processed_value
 

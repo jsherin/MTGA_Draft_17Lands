@@ -560,6 +560,11 @@ class Overlay(ScaledWindow):
         self.sets_window_open = False
 
         self.deck_colors_option_frame = tkinter.Frame(self.root)
+        self._deck_filter_icon_label = Label(
+            self.deck_colors_option_frame,
+            image="",
+            compound="left",
+        )
         self.deck_colors_options = OptionMenu(
             self.deck_colors_option_frame,
             self.deck_filter_selection,
@@ -774,7 +779,8 @@ class Overlay(ScaledWindow):
         self.data_source_label.pack(expand=True, fill=None, anchor="e")
         self.data_source_options.pack(expand=True, fill=None, anchor="w")
         self.deck_colors_label.pack(expand=True, fill=None, anchor="e")
-        self.deck_colors_options.pack(expand=True, fill=None, anchor="w")
+        self._deck_filter_icon_label.pack(side=tkinter.LEFT, padx=(0, 2))
+        self.deck_colors_options.pack(side=tkinter.LEFT, expand=True, fill=None, anchor="w")
         self.current_timestamp = 0
         self.previous_timestamp = 0
         self.log_check_id = None
@@ -1761,6 +1767,16 @@ class Overlay(ScaledWindow):
 
         self.__control_trace(True)
 
+    def __update_deck_filter_icon(self):
+        """Update the Deck Filter selection display with the icon for the current choice."""
+        try:
+            key_to_img = getattr(self, "_deck_filter_key_to_image", {})
+            selection = self.deck_filter_selection.get()
+            img = key_to_img.get(selection)
+            self._deck_filter_icon_label.configure(image=img if img else "")
+        except Exception as error:
+            logger.error(error)
+
     def __update_column_options(self):
         """Update the option menus whenever the application settings change"""
         self.__control_trace(False)
@@ -1886,17 +1902,22 @@ class Overlay(ScaledWindow):
 
             # Keep references to menu images so they aren't garbage collected
             self._deck_filter_menu_images = []
+            self._deck_filter_key_to_image = {}
             for key in self.deck_colors:
-                # Extract colors from the filter value (e.g. "WU"), not the display label
+                # Icon for all options with color chars; label = key (win rate) or key (no color label)
                 filter_value = self.deck_colors[key]
-                color_chars = [c for c in filter_value if c in constants.CARD_COLORS]
+                color_chars = [
+                    c for c in filter_value
+                    if c in constants.CARD_COLORS or c == "C"
+                ]
                 if color_chars:
                     menu_img = self.mana_images.get_compound(color_chars)
                     self._deck_filter_menu_images.append(menu_img)
-                    # Show only the win rate beside the icon; hide raw color text
-                    menu_label = key if "%" in key else " "
+                    self._deck_filter_key_to_image[key] = menu_img
+                    # Show icon + full key for options with win rate; icon only otherwise
+                    label = key if "%" in key else ""
                     deck_colors_menu.add_command(
-                        label=menu_label,
+                        label=label,
                         image=menu_img,
                         compound="left",
                         command=lambda value=key: self.deck_filter_selection.set(value),
@@ -1907,6 +1928,8 @@ class Overlay(ScaledWindow):
                         command=lambda value=key: self.deck_filter_selection.set(value),
                     )
                 self.deck_filter_list.append(key)
+            # Update the selection display icon
+            self.__update_deck_filter_icon()
 
         except Exception as error:
             logger.error(error)
@@ -2618,9 +2641,30 @@ class Overlay(ScaledWindow):
         except Exception as error:
             logger.error(error)
 
+    def __taken_filter_callback(self, *args):
+        """Called when Taken Cards Deck Filter selection changes."""
+        self.__update_settings_callback(*args)
+        self.__update_taken_filter_icon()
+
+    def __update_taken_filter_icon(self):
+        """Update the Taken Cards Deck Filter selection display with the icon."""
+        try:
+            if not getattr(self, "taken_table", None):
+                return
+            key_to_img = getattr(self, "_taken_filter_key_to_image", {})
+            selection = self.taken_filter_selection.get()
+            img = key_to_img.get(selection)
+            label = getattr(self, "_taken_filter_icon_label", None)
+            if label is not None:
+                label.configure(image=img if img else "")
+        except Exception as error:
+            logger.error(error)
+
     def __close_taken_cards_window(self, popup):
         """Clear taken card table data when the Taken Cards window is closed"""
         self.taken_table = None
+        if hasattr(self, "_taken_filter_icon_label"):
+            self._taken_filter_icon_label = None
 
         popup.destroy()
 
@@ -2634,7 +2678,8 @@ class Overlay(ScaledWindow):
         popup = tkinter.Toplevel()
         popup.wm_title("Taken Cards")
         popup.attributes("-topmost", True)
-        popup.resizable(width=False, height=True)
+        popup.resizable(width=True, height=True)
+        popup.minsize(self._scale_value(700), self._scale_value(400))
 
         popup.protocol(
             "WM_DELETE_WINDOW",
@@ -2652,16 +2697,16 @@ class Overlay(ScaledWindow):
 
             headers = {
                 "Column1": {"width": 0.40, "anchor": tkinter.W},
-                "Column2": {"width": 0.20, "anchor": tkinter.W},
-                "Column3": {"width": 0.20, "anchor": tkinter.W},
-                "Column4": {"width": 0.20, "anchor": tkinter.W},
-                "Column5": {"width": 0.20, "anchor": tkinter.W},
-                "Column6": {"width": 0.20, "anchor": tkinter.W},
-                "Column7": {"width": 0.20, "anchor": tkinter.W},
-                "Column8": {"width": 0.20, "anchor": tkinter.W},
-                "Column9": {"width": 0.20, "anchor": tkinter.W},
-                "Column10": {"width": 0.20, "anchor": tkinter.W},
-                "Column11": {"width": 0.20, "anchor": tkinter.W},
+                "Column2": {"width": 0.18, "anchor": tkinter.W},
+                "Column3": {"width": 0.18, "anchor": tkinter.W},
+                "Column4": {"width": 0.18, "anchor": tkinter.W},
+                "Column5": {"width": 0.18, "anchor": tkinter.W},
+                "Column6": {"width": 0.18, "anchor": tkinter.W},
+                "Column7": {"width": 0.18, "anchor": tkinter.W},
+                "Column8": {"width": 0.18, "anchor": tkinter.W},
+                "Column9": {"width": 0.18, "anchor": tkinter.W},
+                "Column10": {"width": 0.18, "anchor": tkinter.W},
+                "Column11": {"width": 0.35, "anchor": tkinter.W},
             }
 
             taken_table_frame = tkinter.Frame(popup)
@@ -2682,6 +2727,7 @@ class Overlay(ScaledWindow):
                 False,
                 include_mana_column=True,
                 mana_column_size=self._scale_value(40),
+                allow_column_resize=True,
             )
             self.taken_table.config(yscrollcommand=taken_scrollbar.set)
             taken_scrollbar.config(command=self.taken_table.yview)
@@ -2698,6 +2744,12 @@ class Overlay(ScaledWindow):
             self.taken_filter_selection.set(self.deck_filter_selection.get())
             taken_filter_list = self.deck_filter_list
 
+            # Icon label for selected deck filter (matching main overlay)
+            self._taken_filter_icon_label = Label(
+                option_frame,
+                image="",
+                compound="left",
+            )
             taken_option = OptionMenu(
                 option_frame,
                 self.taken_filter_selection,
@@ -2708,18 +2760,23 @@ class Overlay(ScaledWindow):
             taken_menu = self.root.nametowidget(taken_option["menu"])
             taken_menu.config(font=self.fonts_dict["All.TMenubutton"])
 
-            # Add mana icons to taken filter menu (matching the main deck filter)
+            # Add mana icons to taken filter menu (icon for all with colors; label = key if % else filter_value)
             self._taken_filter_menu_images = []
+            self._taken_filter_key_to_image = {}
             taken_menu.delete(0, "end")
             for key in self.deck_colors:
                 filter_value = self.deck_colors[key]
-                color_chars = [c for c in filter_value if c in constants.CARD_COLORS]
+                color_chars = [
+                    c for c in filter_value
+                    if c in constants.CARD_COLORS or c == "C"
+                ]
                 if color_chars:
                     menu_img = self.mana_images.get_compound(color_chars)
                     self._taken_filter_menu_images.append(menu_img)
-                    menu_label = key if "%" in key else " "
+                    self._taken_filter_key_to_image[key] = menu_img
+                    label = key if "%" in key else ""
                     taken_menu.add_command(
-                        label=menu_label,
+                        label=label,
                         image=menu_img,
                         compound="left",
                         command=lambda value=key: self.taken_filter_selection.set(value),
@@ -2729,6 +2786,8 @@ class Overlay(ScaledWindow):
                         label=key,
                         command=lambda value=key: self.taken_filter_selection.set(value),
                     )
+
+            self.__update_taken_filter_icon()
 
             type_checkbox_frame = tkinter.Frame(
                 popup, highlightbackground="white", highlightthickness=2
@@ -2868,6 +2927,7 @@ class Overlay(ScaledWindow):
             taken_iwd_checkbox.pack(side=tkinter.LEFT, expand=True, fill="both")
 
             taken_filter_label.pack(side=tkinter.LEFT, expand=True, fill=None)
+            self._taken_filter_icon_label.pack(side=tkinter.LEFT, padx=(0, 2))
             taken_option.pack(side=tkinter.LEFT, expand=True, fill="both")
 
             table_width = self._scale_value(500)
@@ -2889,12 +2949,14 @@ class Overlay(ScaledWindow):
 
             location_x, location_y = identify_safe_coordinates(
                 self.root,
-                table_width,
-                self._scale_value(600),
+                max(table_width, self._scale_value(700)),
+                self._scale_value(550),
                 self._scale_value(250),
                 self._scale_value(0),
             )
-            popup.wm_geometry(f"+{location_x}+{location_y}")
+            popup.wm_geometry(
+                f"{max(table_width, self._scale_value(700))}x{self._scale_value(550)}+{location_x}+{location_y}"
+            )
 
             self.__update_taken_table()
             popup.update()
@@ -4152,7 +4214,7 @@ class Overlay(ScaledWindow):
                 (
                     self.taken_filter_selection,
                     lambda: self.taken_filter_selection.trace(
-                        "w", self.__update_settings_callback
+                        "w", self.__taken_filter_callback
                     ),
                 ),
                 (
