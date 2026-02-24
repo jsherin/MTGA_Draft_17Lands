@@ -1806,18 +1806,30 @@ class Overlay(ScaledWindow):
                     for k, v in self.deck_colors.items()
                     if v == self.configuration.settings.deck_filter
                 ]
+                if not selection:
+                    selection = [
+                        k
+                        for k, v in self.deck_colors.items()
+                        if v == constants.FILTER_OPTION_AUTO
+                    ]
                 self.deck_filter_selection.set(
-                    selection[0] if len(selection) else constants.DECK_FILTER_DEFAULT
+                    selection[0] if selection else next(
+                        iter(self.deck_colors.keys()), constants.DECK_FILTER_DEFAULT
+                    )
                 )
 
             if self.taken_filter_selection.get() not in self.deck_colors:
                 selection = [
                     k
-                    for k in self.deck_colors.keys()
-                    if constants.DECK_FILTER_DEFAULT in k
+                    for k, v in self.deck_colors.items()
+                    if v == constants.FILTER_OPTION_AUTO
                 ]
+                if not selection:
+                    selection = [k for k in self.deck_colors.keys() if "Auto" in k]
                 self.taken_filter_selection.set(
-                    selection[0] if len(selection) else constants.DECK_FILTER_DEFAULT
+                    selection[0] if selection else next(
+                        iter(self.deck_colors.keys()), constants.DECK_FILTER_DEFAULT
+                    )
                 )
             if self.taken_type_selection.get() not in constants.CARD_TYPE_DICT:
                 self.taken_type_selection.set(constants.CARD_TYPE_SELECTION_ALL)
@@ -1914,8 +1926,8 @@ class Overlay(ScaledWindow):
                     menu_img = self.mana_images.get_compound(color_chars)
                     self._deck_filter_menu_images.append(menu_img)
                     self._deck_filter_key_to_image[key] = menu_img
-                    # Show icon + full key for options with win rate; icon only otherwise
-                    label = key if "%" in key else ""
+                    # Show icon + full key for options with win rate; space so icon is left-aligned like entries with win rates
+                    label = key if "%" in key else " "
                     deck_colors_menu.add_command(
                         label=label,
                         image=menu_img,
@@ -2760,7 +2772,7 @@ class Overlay(ScaledWindow):
             taken_menu = self.root.nametowidget(taken_option["menu"])
             taken_menu.config(font=self.fonts_dict["All.TMenubutton"])
 
-            # Add mana icons to taken filter menu (icon for all with colors; label = key if % else filter_value)
+            # Add mana icons to taken filter menu (icon for all with colors; space so icon left-aligned like entries with win rates)
             self._taken_filter_menu_images = []
             self._taken_filter_key_to_image = {}
             taken_menu.delete(0, "end")
@@ -2774,7 +2786,7 @@ class Overlay(ScaledWindow):
                     menu_img = self.mana_images.get_compound(color_chars)
                     self._taken_filter_menu_images.append(menu_img)
                     self._taken_filter_key_to_image[key] = menu_img
-                    label = key if "%" in key else ""
+                    label = key if "%" in key else " "
                     taken_menu.add_command(
                         label=label,
                         image=menu_img,

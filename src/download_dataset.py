@@ -14,7 +14,6 @@ from src.constants import (
     LIMITED_GROUPS_LIST,
     DATA_SET_VERSION_3,
     DATASET_DOWNLOAD_RATE_LIMIT_SEC,
-    COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT,
 )
 
 logger = create_logger()
@@ -179,7 +178,8 @@ class DownloadDatasetWindow(ScaledWindow):
 
             threshold_entry = tkinter.Entry(self.window)
             threshold_entry.insert(
-                tkinter.END, str(COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT)
+                tkinter.END,
+                str(self.configuration.settings.color_win_rate_game_count_threshold),
             )
 
             set_choices = list(sets)
@@ -377,11 +377,14 @@ class DownloadDatasetWindow(ScaledWindow):
     def __add_set(self, download_args: DownloadArgs):
         """Initiates the set download process when the Download Dataset button is clicked."""
 
-        # Parse threshold
+        # Parse threshold from dialog; fall back to config default
         try:
             threshold_val = int(download_args.game_threshold.get())
         except ValueError:
-            threshold_val = COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT
+            threshold_val = self.configuration.settings.color_win_rate_game_count_threshold
+
+        self.configuration.settings.color_win_rate_game_count_threshold = threshold_val
+        write_configuration(self.configuration)
 
         extractor = FileExtractor(
             self.configuration.settings.database_location,

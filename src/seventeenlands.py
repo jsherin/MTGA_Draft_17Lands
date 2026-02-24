@@ -14,7 +14,6 @@ from src.constants import (
     DATA_FIELD_ALSA,
     DATA_SECTION_RATINGS,
     DECK_COLORS,
-    COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT,
 )
 
 URL_17LANDS = "https://www.17lands.com"
@@ -66,8 +65,8 @@ class Seventeenlands:
         start_date,
         end_date,
         user_group,
+        threshold,
         color_filter=None,
-        threshold=COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT,
     ):
         url = self._build_color_ratings_url(
             set_code, draft, start_date, end_date, user_group

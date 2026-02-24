@@ -87,6 +87,7 @@ class Settings(BaseModel):
     taken_wheel_enabled: bool = False
     arena_log_location: str = ""
     database_location: str = ""
+    color_win_rate_game_count_threshold: int = 5000
     signals_enabled: bool = True
 
     @field_validator("deck_filter")

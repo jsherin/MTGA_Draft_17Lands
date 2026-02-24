@@ -1849,7 +1849,7 @@ def test_otj_premier_p1p1_ocr_disabled(mock_screenshot, mock_ocr, function_scann
 def test_scanner_retrieve_color_win_rate_mismatch_handling():
     """
     Verify that ArenaScanner correctly maps dataset keys to UI labels even if they are stored differently.
-    Color entries show only win rate (e.g. "55.5%") since mana icons provide color context.
+    Color entries show identity + win rate (e.g. "GW (55.5%)") so every combo has a unique label.
     """
     scanner = ArenaScanner("log.txt", MagicMock(), retrieve_unknown=False)
 
@@ -1862,11 +1862,12 @@ def test_scanner_retrieve_color_win_rate_mismatch_handling():
     with patch("src.constants.DECK_FILTERS", ["GW", "WR", "All Decks"]):
         deck_colors = scanner.retrieve_color_win_rate("Colors")
 
-        # Color entries show only win rate (mana icons in dropdown provide color)
-        assert "55.5%" in deck_colors
-        assert deck_colors["55.5%"] == "GW"
-        assert "60.0%" in deck_colors
-        assert deck_colors["60.0%"] == "WR"
+        # Color entries show normalized key + win rate so labels are unique
+        # (GW normalizes to WG in WUBRG order)
+        assert "WG (55.5%)" in deck_colors
+        assert deck_colors["WG (55.5%)"] == "GW"
+        assert "WR (60.0%)" in deck_colors
+        assert deck_colors["WR (60.0%)"] == "WR"
 
 
 def test_scanner_retrieve_color_win_rate_non_color_entries_keep_label():

@@ -164,7 +164,7 @@ def test_download_color_ratings(mock_get, seventeenlands):
 
     # Act
     color_ratings, game_count = seventeenlands.download_color_ratings(
-        set_code, draft, start_date, end_date, user_group
+        set_code, draft, start_date, end_date, user_group, 5000
     )
 
     # Assert
@@ -192,7 +192,7 @@ def test_seventeenlands_color_ratings_normalization():
         # We pass a filter that includes the *Normalized* key "WG"
         # The function should be able to map "GW" from API to "WG"
         ratings, game_count = sl.download_color_ratings(
-            "SET", "Draft", "Start", "End", "User", color_filter=["WG"]
+            "SET", "Draft", "Start", "End", "User", 5000, color_filter=["WG"]
         )
 
         # Check that the key in the returned dictionary is normalized to "WG"

@@ -11,10 +11,7 @@ from src.file_extractor import (
 )
 from src import constants
 from src.utils import Result, normalize_color_string
-from src.constants import (
-    COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT,
-    DECK_COLORS,
-)
+from src.constants import DECK_COLORS
 
 
 @pytest.mark.parametrize(
@@ -112,7 +109,11 @@ def file_extractor():
     mock_ui = MagicMock()
 
     extractor = FileExtractor(
-        directory=None, progress=mock_progress, status=mock_status, ui=mock_ui
+        directory=None,
+        progress=mock_progress,
+        status=mock_status,
+        ui=mock_ui,
+        threshold=5000,
     )
 
     # Set default attributes usually set by UI interaction
@@ -145,13 +146,13 @@ def test_retrieve_17lands_color_ratings_passes_threshold(
     # Run
     file_extractor.retrieve_17lands_color_ratings()
 
-    # Verify call
+    # Verify call (threshold is 6th positional argument)
     mock_sl_instance.download_color_ratings.assert_called_once()
-    call_kwargs = mock_sl_instance.download_color_ratings.call_args.kwargs
-    assert call_kwargs["threshold"] == custom_threshold
+    call_args = mock_sl_instance.download_color_ratings.call_args[0]
+    assert call_args[5] == custom_threshold
 
 
-def test_file_extractor_default_threshold():
-    """Verify FileExtractor defaults to the constant if no threshold is provided."""
-    extractor = FileExtractor(None, None, None, None)
-    assert extractor.threshold == COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT
+def test_file_extractor_uses_passed_threshold():
+    """Verify FileExtractor uses the threshold passed in (threshold is config-driven, no code default)."""
+    extractor = FileExtractor(None, None, None, None, threshold=5000)
+    assert extractor.threshold == 5000

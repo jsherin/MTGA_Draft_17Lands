@@ -32,8 +32,6 @@ CARD_COLOR_LABEL_RED = "Red"
 CARD_COLOR_LABEL_GREEN = "Green"
 CARD_COLOR_LABEL_NC = "NC"
 
-COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT = 5000
-
 LIMITED_TYPE_UNKNOWN = 0
 LIMITED_TYPE_DRAFT_PREMIER_V1 = 1
 LIMITED_TYPE_DRAFT_PREMIER_V2 = 2
@@ -545,7 +543,11 @@ COLOR_NAMES_DICT = {
     "WUBRG": "Five-Color",
 }
 DECK_COLORS = [FILTER_OPTION_ALL_DECKS] + [k for k in COLOR_NAMES_DICT.keys()]
-DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_COLORS
+# Deck filter dropdown: single, two-, and three-color only (no 4/5 color)
+DECK_FILTER_COLORS = [
+    FILTER_OPTION_ALL_DECKS
+] + [k for k in COLOR_NAMES_DICT.keys() if len(k) <= 3]
+DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_FILTER_COLORS
 
 # Two-color guild pairs for GIHWR breakdown display (WUBRG order)
 TWO_COLOR_PAIRS = ["WU", "UB", "BR", "RG", "GW", "WB", "BG", "UG", "UR", "WR"]

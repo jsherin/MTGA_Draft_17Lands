@@ -188,7 +188,14 @@ class Notifications:
                 return
             logger.info(f"Checking dataset {self.configuration.card_data.latest_dataset} for updates")
             current_date = str(date.today())
-            color_ratings, game_count = Seventeenlands().download_color_ratings(dataset_info[0], dataset_info[1], dataset_info[3], current_date, dataset_info[2])
+            color_ratings, game_count = Seventeenlands().download_color_ratings(
+                dataset_info[0],
+                dataset_info[1],
+                dataset_info[3],
+                current_date,
+                dataset_info[2],
+                self.configuration.settings.color_win_rate_game_count_threshold,
+            )
             if (
                 not self.expansions or
                 dataset_info[0] not in self.expansions

@@ -12,7 +12,6 @@ from src.logger import create_logger
 from src.utils import Result, check_file_integrity, clean_string
 from src.ui_progress import UIProgress
 from src.seventeenlands import Seventeenlands
-from src.constants import COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT
 
 logger = create_logger()
 
@@ -185,7 +184,7 @@ def check_date(date):
 class FileExtractor(UIProgress):
     '''Class that handles the creation of set files and the retrieval of platform information'''
 
-    def __init__(self, directory, progress, status, ui, threshold=COLOR_WIN_RATE_GAME_COUNT_THRESHOLD_DEFAULT):
+    def __init__(self, directory, progress, status, ui, threshold):
         super().__init__(progress, status, ui)
         self.selected_sets = []
         self.set_list = []
@@ -715,12 +714,12 @@ class FileExtractor(UIProgress):
         seventeenlands = Seventeenlands()
         try:
             self.combined_data["color_ratings"], game_count = seventeenlands.download_color_ratings(
-                self.selected_sets.seventeenlands[0], 
-                self.draft, 
-                self.start_date, 
-                self.end_date, 
+                self.selected_sets.seventeenlands[0],
+                self.draft,
+                self.start_date,
+                self.end_date,
                 self.user_group,
-                threshold=self.threshold
+                self.threshold,
             )
             self.set_game_count(game_count)
         except Exception as error:
