@@ -490,15 +490,17 @@ class CardToolTip(tkinter.Toplevel):
 
 
 class ModernTreeview(ttk.Treeview):
-    """A high-density Treeview with built-in sorting logic."""
+    """A high-density Treeview with built-in sorting logic and optional mana icon column (#0)."""
 
     def __init__(self, parent, columns, **kwargs):
         super().__init__(
-            parent, columns=columns, show="headings", style="Treeview", **kwargs
+            parent, columns=columns, show="tree headings", style="Treeview", **kwargs
         )
         self.column_sort_state = {col: False for col in columns}
         self.active_fields = []  # Injected by Manager
         self.base_labels = {}  # Store original names for arrows
+        self.heading("#0", text="")
+        self.column("#0", width=26, minwidth=26, stretch=False, anchor=tkinter.CENTER)
         self._setup_headers(columns)
         self._setup_row_colors()
 

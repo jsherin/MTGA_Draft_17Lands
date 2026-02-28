@@ -28,6 +28,8 @@ class TestLogPipelineIntegration:
         temp_logs.mkdir()
         monkeypatch.setattr("src.constants.SETS_FOLDER", str(temp_sets))
         monkeypatch.setattr("src.constants.DRAFT_LOG_FOLDER", str(temp_logs))
+        # utils imports SETS_FOLDER at load time; patch it so list/read use temp path
+        monkeypatch.setattr("src.utils.SETS_FOLDER", str(temp_sets))
 
         log_file = tmp_path / "Player.log"
         log_file.write_text("MTGA Log Start\n")
@@ -61,6 +63,15 @@ class TestLogPipelineIntegration:
         )
         monkeypatch.setattr(
             "src.utils.retrieve_local_set_list", lambda *a, **k: mock_data
+        )
+        # App imports retrieve_local_set_list at load time; patch at use site so UI sees mock
+        monkeypatch.setattr(
+            "src.ui.app.retrieve_local_set_list", lambda *a, **k: mock_data
+        )
+        # Real download runs; decline the "Would you like to update now?" dialog so test doesn't block
+        monkeypatch.setattr(
+            "tkinter.messagebox.askyesno",
+            lambda *a, **k: False,
         )
 
         config = Configuration()
@@ -107,14 +118,18 @@ class TestLogPipelineIntegration:
         # Manually trigger the update loop logic since we patched the scheduler
         app._update_loop()
 
+        # Wait for draft to be detected and set label (UI shows display name "Outlaws", not code "OTJ")
+        # Allow time for real 17lands update check + dialog decline
         ready = False
-        for _ in range(50):
+        set_label = app.vars["set_label"].get
+        for _ in range(150):
             root.update()
-            if not app._loading and "OTJ" in app.vars["set_label"].get():
+            label = set_label()
+            if not app._loading and ("OTJ" in label or "Outlaws" in label):
                 ready = True
                 break
             time.sleep(0.1)
-        assert ready
+        assert ready, f"timed out: _loading={app._loading}, set_label={set_label()!r}"
 
         p1p1 = (
             '[UnityCrossThreadLogger]==> LogBusinessEvents {"id":"2","request":"{\\"PackNumber\\":1,\\"PickNumber\\":1,'

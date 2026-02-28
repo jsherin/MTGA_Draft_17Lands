@@ -559,7 +559,14 @@ COLOR_NAMES_DICT = {
     "WUBRG": "Five-Color",
 }
 DECK_COLORS = [FILTER_OPTION_ALL_DECKS] + [k for k in COLOR_NAMES_DICT.keys()]
-DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_COLORS
+# Deck filter dropdown: single-, two-, and three-color only (no 4/5 color)
+DECK_FILTER_COLORS = [
+    FILTER_OPTION_ALL_DECKS
+] + [k for k in COLOR_NAMES_DICT.keys() if len(k) <= 3]
+DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_FILTER_COLORS
+
+# Two-color guild pairs for GIHWR breakdown display (WUBRG order)
+TWO_COLOR_PAIRS = ["WU", "UB", "BR", "RG", "GW", "WB", "BG", "UG", "UR", "WR"]
 
 CARD_COLORS_DICT = {
     CARD_COLOR_LABEL_WHITE: CARD_COLOR_SYMBOL_WHITE,

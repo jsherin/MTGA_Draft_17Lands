@@ -159,6 +159,43 @@ def row_color_tag(mana_cost):
     return constants.CARD_ROW_COLOR_COLORLESS_TAG
 
 
+def format_gihwr_column(deck_colors, current_filter):
+    """
+    Format the GIHWR table column with primary (current filter) value plus
+    two-color pair breakdown. Returns (display_string, sort_value).
+    sort_value is the primary GIHWR for sorting; display_string may be
+    e.g. "55.0" or "WU: 55.0  UB: 54.2  AD: 53.1".
+    """
+    if not deck_colors:
+        return "-", 0.0
+    primary_stats = deck_colors.get(current_filter, {})
+    primary_gihwr = primary_stats.get(constants.DATA_FIELD_GIHWR, 0.0)
+    has_primary = primary_gihwr and primary_gihwr != 0.0
+
+    pair_entries = []
+    for pair in constants.TWO_COLOR_PAIRS:
+        if pair in deck_colors and pair != current_filter:
+            gihwr = deck_colors[pair].get(constants.DATA_FIELD_GIHWR, 0.0)
+            if gihwr and gihwr != 0.0:
+                pair_entries.append((pair, gihwr))
+    pair_entries.sort(key=lambda x: x[1], reverse=True)
+    pair_strs = [f"{p}: {g:.1f}" for p, g in pair_entries]
+    if current_filter and constants.FILTER_OPTION_ALL_DECKS in deck_colors:
+        ad_gihwr = deck_colors[constants.FILTER_OPTION_ALL_DECKS].get(
+            constants.DATA_FIELD_GIHWR, 0.0
+        )
+        if ad_gihwr and ad_gihwr != 0.0:
+            pair_strs.append(f"AD: {ad_gihwr:.1f}")
+
+    if has_primary:
+        left = f"{current_filter}: {primary_gihwr:.1f}" if current_filter else f"{primary_gihwr:.1f}"
+        parts = [left] + pair_strs
+        return "  ".join(parts), primary_gihwr
+    if pair_strs:
+        return "  ".join(pair_strs), pair_entries[0][1]
+    return "-", 0.0
+
+
 def field_process_sort(field_value):
     """Helper for treeview sorting."""
     try:

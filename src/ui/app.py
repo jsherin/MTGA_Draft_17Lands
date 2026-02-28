@@ -28,6 +28,7 @@ from src.ui.windows.compare import ComparePanel
 from src.ui.windows.download import DownloadWindow
 from src.ui.windows.tier_list import TierListWindow
 from src.ui.windows.settings import SettingsWindow
+from src.mana_images import ManaImageCache
 
 
 class DraftApp:
@@ -54,6 +55,8 @@ class DraftApp:
         self.active_event_set = ""
         self.active_event_type = ""
         self._notified_missing_sets = set()
+        self._mana_cache: Optional[ManaImageCache] = None
+        self._deck_filter_menu_images: List[Any] = []  # keep refs so images don't get GC'd
 
         # 2. Logic Initialization
         self.orchestrator = DraftOrchestrator(
@@ -695,12 +698,36 @@ class DraftApp:
             self.configuration.settings.filter_format
         )
         self.deck_filter_map = rate_map
+        if self._mana_cache is None:
+            self._mana_cache = ManaImageCache(size=16)
+        self._deck_filter_menu_images.clear()
         menu = self.om_filter["menu"]
         menu.delete(0, "end")
         for label in rate_map.keys():
-            menu.add_command(
-                label=label, command=lambda v=label: self.vars["deck_filter"].set(v)
-            )
+            key = rate_map[label]
+            photo = None
+            if key and key in constants.DECK_FILTER_COLORS and key not in (
+                constants.FILTER_OPTION_AUTO,
+                constants.FILTER_OPTION_ALL_DECKS,
+            ):
+                try:
+                    color_list = list(key)
+                    if all(c in constants.CARD_COLORS for c in color_list):
+                        photo = self._mana_cache.get_compound(color_list)
+                        self._deck_filter_menu_images.append(photo)
+                except Exception:
+                    pass
+            if photo is not None:
+                menu.add_command(
+                    label=label,
+                    image=photo,
+                    compound="left",
+                    command=lambda v=label: self.vars["deck_filter"].set(v),
+                )
+            else:
+                menu.add_command(
+                    label=label, command=lambda v=label: self.vars["deck_filter"].set(v)
+                )
 
         current_setting = self.configuration.settings.deck_filter
 

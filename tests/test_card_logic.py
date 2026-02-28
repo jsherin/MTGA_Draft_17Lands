@@ -8,7 +8,11 @@ from src.card_logic import CardResult
 from src.dataset import Dataset
 from src.tier_list import TierList, Meta, Rating
 from unittest.mock import MagicMock
-from src.card_logic import export_draft_to_csv, export_draft_to_json
+from src.card_logic import (
+    export_draft_to_csv,
+    export_draft_to_json,
+    format_gihwr_column,
+)
 
 # 17Lands OTJ data from 2024-4-16 to 2024-5-3
 OTJ_PREMIER_SNAPSHOT = os.path.join(
@@ -207,3 +211,69 @@ def test_export_draft_to_csv_edge_cases():
     # 3. Stats should be empty strings/zeros, not crash
     # IWD is the last column (Index 10)
     assert row[10].strip() == ""
+
+
+# --- format_gihwr_column ---
+
+
+def test_format_gihwr_column_empty_deck_colors():
+    display, sort_val = format_gihwr_column({}, "All Decks")
+    assert display == "-"
+    assert sort_val == 0.0
+
+
+def test_format_gihwr_column_primary_only():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 54.0},
+    }
+    display, sort_val = format_gihwr_column(deck_colors, "All Decks")
+    assert "54.0" in display
+    assert sort_val == 54.0
+
+
+def test_format_gihwr_column_with_current_filter_and_pairs():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 53.0},
+        "WU": {constants.DATA_FIELD_GIHWR: 55.0},
+        "UB": {constants.DATA_FIELD_GIHWR: 54.2},
+        "WR": {constants.DATA_FIELD_GIHWR: 52.0},
+    }
+    display, sort_val = format_gihwr_column(deck_colors, "WU")
+    assert "WU: 55.0" in display
+    assert "UB: 54.2" in display
+    assert "52.0" in display
+    assert "AD: 53.0" in display
+    assert sort_val == 55.0
+
+
+def test_format_gihwr_column_pairs_sorted_descending():
+    deck_colors = {
+        "WU": {constants.DATA_FIELD_GIHWR: 55.0},
+        "UB": {constants.DATA_FIELD_GIHWR: 56.0},
+        "BR": {constants.DATA_FIELD_GIHWR: 54.0},
+    }
+    display, sort_val = format_gihwr_column(deck_colors, "WU")
+    # UB (56) should appear before BR (54)
+    ub_pos = display.index("UB:")
+    br_pos = display.index("BR:")
+    assert ub_pos < br_pos
+    assert sort_val == 55.0
+
+
+def test_format_gihwr_column_no_primary_has_pairs():
+    deck_colors = {
+        "UB": {constants.DATA_FIELD_GIHWR: 54.0},
+    }
+    display, sort_val = format_gihwr_column(deck_colors, "WU")
+    assert "UB: 54.0" in display
+    assert sort_val == 54.0
+
+
+def test_format_gihwr_column_zero_gihwr_excluded():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 0.0},
+        "WU": {constants.DATA_FIELD_GIHWR: 0.0},
+    }
+    display, sort_val = format_gihwr_column(deck_colors, "All Decks")
+    assert sort_val == 0.0
+    assert display == "-"

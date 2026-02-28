@@ -9,7 +9,8 @@ from tkinter import ttk
 from typing import List, Dict, Any, Optional
 
 from src import constants
-from src.card_logic import field_process_sort, row_color_tag
+from src.card_logic import field_process_sort, row_color_tag, format_gihwr_column
+from src.mana_images import ManaImageCache
 from src.ui.styles import Theme
 from src.ui.components import (
     ModernTreeview,
@@ -37,6 +38,7 @@ class DashboardFrame(ttk.Frame):
         self.signal_meter: Optional[SignalMeter] = None
         self.curve_plot: Optional[ManaCurvePlot] = None
         self.type_chart: Optional[TypePieChart] = None
+        self._mana_cache: Optional[ManaImageCache] = None
 
         self._build_layout()
 
@@ -165,11 +167,19 @@ class DashboardFrame(ttk.Frame):
         rec_map = {r.card_name: r for r in (recommendations or [])}
         active_filter = colors[0] if colors else "All Decks"
         processed_rows = []
+        if self._mana_cache is None:
+            self._mana_cache = ManaImageCache(size=16)
 
         for card in cards:
             name = card.get(constants.DATA_FIELD_NAME, "Unknown")
-            stats = card.get("deck_colors", {}).get(active_filter, {})
+            deck_colors = card.get("deck_colors", {})
+            stats = deck_colors.get(active_filter, {})
             rec = rec_map.get(name)
+            gihwr_display, gihwr_sort = format_gihwr_column(deck_colors, active_filter)
+            mana_photo = self._mana_cache.get_for_card(
+                card.get(constants.DATA_FIELD_MANA_COST)
+                or card.get(constants.DATA_FIELD_COLORS, [])
+            )
 
             row_tag = "bw_odd" if len(processed_rows) % 2 == 0 else "bw_even"
             if self.configuration.settings.card_colors_enabled:
@@ -206,6 +216,8 @@ class DashboardFrame(ttk.Frame):
                     else:
                         val = stats.get("gihwr", 0.0)
                         row_values.append(f"{val:.0f}" if val != 0.0 else "-")
+                elif field == "gihwr":
+                    row_values.append(gihwr_display)
                 elif field == "colors":
                     row_values.append("".join(card.get("colors", [])))
                 elif field == "tags":
@@ -243,7 +255,7 @@ class DashboardFrame(ttk.Frame):
                         row_values.append(
                             f"{val:.1f}"
                             if field
-                            in ["gihwr", "ohwr", "gpwr", "gnswr", "gdwr", "iwd"]
+                            in ["ohwr", "gpwr", "gnswr", "gdwr", "iwd"]
                             else str(val)
                         )
 
@@ -252,14 +264,21 @@ class DashboardFrame(ttk.Frame):
                     "vals": row_values,
                     "tag": row_tag,
                     "sort_key": (
-                        rec.contextual_score if rec else stats.get("gihwr", 0.0)
+                        rec.contextual_score if rec else gihwr_sort
                     ),
+                    "image": mana_photo,
                 }
             )
 
         processed_rows.sort(key=lambda x: x["sort_key"], reverse=True)
         for row in processed_rows:
-            tree.insert("", "end", values=row["vals"], tags=(row["tag"],))
+            tree.insert(
+                "",
+                "end",
+                values=row["vals"],
+                tags=(row["tag"],),
+                image=row.get("image"),
+            )
 
     def update_signals(self, scores: Dict[str, float]):
         if self.signal_meter:
