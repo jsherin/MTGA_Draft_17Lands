@@ -9,7 +9,8 @@ from tkinter import ttk
 from typing import List, Dict, Any
 
 from src import constants
-from src.card_logic import stack_cards, copy_deck, row_color_tag
+from src.card_logic import stack_cards, copy_deck, row_color_tag, format_gihwr_column
+from src.mana_images import ManaImageCache
 from src.ui.styles import Theme
 from src.ui.components import (
     DynamicTreeviewManager,
@@ -28,6 +29,7 @@ class TakenCardsPanel(ttk.Frame):
         self.current_display_list = []
         self.view_mode = "list"  # "list" or "visual"
         self.active_color = "All Decks"
+        self._mana_cache = None
 
         # UI State for Checkbuttons
         self.vars = {}
@@ -183,32 +185,42 @@ class TakenCardsPanel(ttk.Frame):
         for item in t.get_children():
             t.delete(item)
 
+        if self._mana_cache is None:
+            self._mana_cache = ManaImageCache(size=16)
+
+        active_filter = self.active_color
+        processed_rows = []
         for idx, card in enumerate(self.current_display_list):
             row_values = []
+            deck_colors = card.get("deck_colors", {})
+            mana_photo = self._mana_cache.get_for_card(
+                card.get(constants.DATA_FIELD_MANA_COST)
+                or card.get(constants.DATA_FIELD_COLORS, [])
+            )
             for field in self.table_manager.active_fields:
                 if field == "name":
                     row_values.append(card.get("name", "Unknown"))
                 elif field == "count":
                     row_values.append(card.get("count", 1))
+                elif field == "gihwr":
+                    gihwr_display, _ = format_gihwr_column(deck_colors, active_filter)
+                    row_values.append(gihwr_display)
                 elif field == "colors":
                     row_values.append("".join(card.get("colors", [])))
                 elif field == "tags":
                     raw_tags = card.get("tags", [])
                     if raw_tags:
                         icons_only = [
-                            constants.TAG_VISUALS.get(t, t).split(" ")[0]
-                            for t in raw_tags
+                            constants.TAG_VISUALS.get(tag, tag).split(" ")[0]
+                            for tag in raw_tags
                         ]
                         row_values.append(" ".join(icons_only))
                     else:
                         row_values.append("-")
                 else:
                     val = (
-                        card.get("deck_colors", {})
-                        .get(self.active_color, {})
-                        .get(field, 0.0)
+                        deck_colors.get(active_filter, {}).get(field, 0.0)
                     )
-
                     if val == 0.0 or val == "-":
                         row_values.append("-")
                     else:
@@ -219,8 +231,24 @@ class TakenCardsPanel(ttk.Frame):
             tag = "bw_odd" if idx % 2 == 0 else "bw_even"
             if int(self.configuration.settings.card_colors_enabled):
                 tag = row_color_tag(card.get(constants.DATA_FIELD_MANA_COST, ""))
+            _, gihwr_sort = format_gihwr_column(deck_colors, active_filter)
+            processed_rows.append({
+                "vals": row_values,
+                "tag": tag,
+                "sort_key": gihwr_sort,
+                "image": mana_photo,
+            })
 
-            t.insert("", "end", values=row_values, tags=(tag,))
+        processed_rows.sort(key=lambda x: x["sort_key"], reverse=True)
+        for row in processed_rows:
+            t.insert(
+                "",
+                "end",
+                text="",
+                values=row["vals"],
+                tags=(row["tag"],),
+                image=row.get("image"),
+            )
 
     def _render_visual_view(self):
         # Clear existing piles

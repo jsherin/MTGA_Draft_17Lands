@@ -522,9 +522,8 @@ class ModernTreeview(ttk.Treeview):
             self.base_labels[col] = label
             width = 200 if col == "name" else 65
             self.heading(col, text=label, command=lambda c=col: self._handle_sort(c))
-            self.column(
-                col, width=width, anchor=tkinter.W if col == "name" else tkinter.CENTER
-            )
+            anchor = tkinter.W if col in ("name", "gihwr") else tkinter.CENTER
+            self.column(col, width=width, anchor=anchor)
 
     def _setup_row_colors(self):
         """Premium tailored row tags for the tables."""

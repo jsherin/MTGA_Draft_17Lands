@@ -391,10 +391,13 @@ class DraftApp:
         pack_cards = self.orchestrator.scanner.retrieve_current_pack_cards()
         missing_cards = self.orchestrator.scanner.retrieve_current_missing_cards()
 
-        from src.advisor.engine import DraftAdvisor
+        if self.configuration.settings.advisor_enabled:
+            from src.advisor.engine import DraftAdvisor
 
-        advisor = DraftAdvisor(metrics, taken_cards)
-        recommendations = advisor.evaluate_pack(pack_cards, pi)
+            advisor = DraftAdvisor(metrics, taken_cards)
+            recommendations = advisor.evaluate_pack(pack_cards, pi)
+        else:
+            recommendations = []
 
         self.vars["event_info"].set(f"{es} {et}" if es else "Scan logs...")
         self.vars["status_text"].set(f"Pack {pk} Pick {pi}")

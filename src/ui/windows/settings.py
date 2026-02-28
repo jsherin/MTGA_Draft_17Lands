@@ -105,6 +105,7 @@ class SettingsWindow(tkinter.Toplevel):
         features = [
             ("Highlight Row by Mana Cost", "card_colors_enabled"),
             ("Auto-Switch Deck Filter to Best Colors", "auto_highest_enabled"),
+            ("Enable Draft Advisor (pick recommendations)", "advisor_enabled"),
             ("Enable P1P1 OCR", "p1p1_ocr_enabled"),
             ("Save P1P1 Screenshots", "save_screenshot_enabled"),
             ("Check for Dataset Updates", "update_notifications_enabled"),
@@ -142,6 +143,7 @@ class SettingsWindow(tkinter.Toplevel):
         checkbox_keys = [
             "card_colors_enabled",
             "auto_highest_enabled",
+            "advisor_enabled",
             "p1p1_ocr_enabled",
             "save_screenshot_enabled",
             "update_notifications_enabled",

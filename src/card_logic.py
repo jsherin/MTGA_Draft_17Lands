@@ -180,6 +180,7 @@ def format_gihwr_column(deck_colors, current_filter):
                 pair_entries.append((pair, gihwr))
     pair_entries.sort(key=lambda x: x[1], reverse=True)
     pair_strs = [f"{p}: {g:.1f}" for p, g in pair_entries]
+    ad_gihwr = 0.0
     if current_filter and constants.FILTER_OPTION_ALL_DECKS in deck_colors:
         ad_gihwr = deck_colors[constants.FILTER_OPTION_ALL_DECKS].get(
             constants.DATA_FIELD_GIHWR, 0.0
@@ -192,7 +193,8 @@ def format_gihwr_column(deck_colors, current_filter):
         parts = [left] + pair_strs
         return "  ".join(parts), primary_gihwr
     if pair_strs:
-        return "  ".join(pair_strs), pair_entries[0][1]
+        sort_val = pair_entries[0][1] if pair_entries else ad_gihwr
+        return "  ".join(pair_strs), sort_val
     return "-", 0.0
 
 
@@ -210,6 +212,12 @@ def field_process_sort(field_value):
             for k, v in constants.GRADE_ORDER_DICT.items():
                 if k.strip() == val:
                     return (1, float(v))
+
+            # GIHWR column: "WU: 55.0  UB: 54.2  AD: 53.1" — sort by first number (selected filter)
+            if ":" in val:
+                match = re.search(r"[\d.]+", val)
+                if match:
+                    return (1, float(match.group()))
 
             return (1, float(val))
 
