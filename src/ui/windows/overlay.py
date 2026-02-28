@@ -277,6 +277,7 @@ class CompactOverlay(tb.Toplevel):
             self.tree.insert(
                 "",
                 "end",
+                text="",
                 values=row["vals"],
                 tags=(row["tag"],),
                 image=row.get("image"),

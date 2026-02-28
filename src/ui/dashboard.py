@@ -275,6 +275,7 @@ class DashboardFrame(ttk.Frame):
             tree.insert(
                 "",
                 "end",
+                text="",
                 values=row["vals"],
                 tags=(row["tag"],),
                 image=row.get("image"),

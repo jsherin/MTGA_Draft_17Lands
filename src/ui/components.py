@@ -500,7 +500,8 @@ class ModernTreeview(ttk.Treeview):
         self.active_fields = []  # Injected by Manager
         self.base_labels = {}  # Store original names for arrows
         self.heading("#0", text="")
-        self.column("#0", width=26, minwidth=26, stretch=False, anchor=tkinter.CENTER)
+        # Wide enough for 3 mana icons (e.g. 12px each = 36px) plus padding so name does not overlap
+        self.column("#0", width=52, minwidth=52, stretch=False, anchor=tkinter.CENTER)
         self._setup_headers(columns)
         self._setup_row_colors()
 
