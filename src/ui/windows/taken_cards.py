@@ -189,6 +189,7 @@ class TakenCardsPanel(ttk.Frame):
             self._mana_cache = ManaImageCache(size=16)
 
         active_filter = self.active_color
+        t._gihwr_filter = active_filter
         processed_rows = []
         for idx, card in enumerate(self.current_display_list):
             row_values = []

@@ -168,6 +168,7 @@ class CompactOverlay(tb.Toplevel):
 
         rec_map = {r.card_name: r for r in (recommendations or [])}
         active_filter = colors[0] if colors else "All Decks"
+        self.tree._gihwr_filter = active_filter
         processed_rows = []
         if self._mana_cache is None:
             self._mana_cache = ManaImageCache(size=16)

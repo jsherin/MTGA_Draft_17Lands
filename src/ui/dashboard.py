@@ -162,6 +162,9 @@ class DashboardFrame(ttk.Frame):
         if not tree or not hasattr(tree, "active_fields"):
             return
 
+        active_filter = colors[0] if colors else "All Decks"
+        tree._gihwr_filter = active_filter
+
         tree.bind(
             "<<TreeviewSelect>>",
             lambda e, t=tree, s=source_type: self.on_card_select(e, t, s),
@@ -173,7 +176,6 @@ class DashboardFrame(ttk.Frame):
             return
 
         rec_map = {r.card_name: r for r in (recommendations or [])}
-        active_filter = colors[0] if colors else "All Decks"
         processed_rows = []
         if self._mana_cache is None:
             self._mana_cache = ManaImageCache(size=16)

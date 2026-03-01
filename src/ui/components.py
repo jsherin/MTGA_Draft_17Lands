@@ -561,14 +561,33 @@ class ModernTreeview(ttk.Treeview):
         except ValueError:
             return
 
+        gihwr_filter = getattr(self, "_gihwr_filter", None)
+
         def _key(t):
-            p = field_process_sort(t[0][col_idx])
+            cell = t[0][col_idx]
+            # GIHWR column: sort by the filtered color's value when a filter is set
+            if col == "gihwr" and gihwr_filter and isinstance(cell, str):
+                stripped = cell.replace("*", "").replace("%", "").strip()
+                if stripped and stripped not in ("NA", "-", ""):
+                    # Match "FILTER: 55.0" (filter may contain spaces e.g. "All Decks")
+                    m = re.search(
+                        re.escape(gihwr_filter) + r"\s*:\s*([\d.]+)",
+                        stripped,
+                    )
+                    if m:
+                        try:
+                            return (1, float(m.group(1)), str(t[0][0]).lower())
+                        except ValueError:
+                            pass
+                    # Card has no data for the selected filter — sort below cards that do
+                    return (0, 0.0, str(t[0][0]).lower())
+            p = field_process_sort(cell)
             if isinstance(p, tuple):
                 return (p[0], p[1], str(t[0][0]).lower())
 
             try:
                 return (1, float(p), str(t[0][0]).lower())
-            except:
+            except Exception:
                 return (0, str(p), str(t[0][0]).lower())
 
         # Sort the items and re-insert them with fresh zebra striping

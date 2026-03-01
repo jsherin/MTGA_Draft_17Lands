@@ -193,7 +193,11 @@ def format_gihwr_column(deck_colors, current_filter):
         parts = [left] + pair_strs
         return "  ".join(parts), primary_gihwr
     if pair_strs:
-        sort_val = pair_entries[0][1] if pair_entries else ad_gihwr
+        # When a filter is selected, sort by filter's value only; no data = bottom
+        if current_filter:
+            sort_val = 0.0
+        else:
+            sort_val = pair_entries[0][1] if pair_entries else ad_gihwr
         return "  ".join(pair_strs), sort_val
     return "-", 0.0
 
