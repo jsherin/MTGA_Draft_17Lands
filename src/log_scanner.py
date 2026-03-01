@@ -89,6 +89,8 @@ class ArenaScanner:
         self.draft_label = ""
         self.draft_history = []
         self.current_draft_id = ""
+        self._log_cleared = False  # True after clear_draft(True), so we don't suppress "new draft" on next read from 0
+        self._replaying_log = False  # True while replaying log from start (app open); suppresses "New DraftId" wipe/log
 
     def set_arena_file(self, filename):
         """Updates the log path and resets pointers for a clean scan."""
@@ -135,6 +137,7 @@ class ArenaScanner:
             self.search_offset = 0
             self.draft_start_offset = 0
             self.file_size = 0
+            self._log_cleared = True
         self.set_data.clear()
         self.draft_type = constants.LIMITED_TYPE_UNKNOWN
         self.pick_offset = 0
@@ -156,7 +159,16 @@ class ArenaScanner:
         self.current_draft_id = ""
 
     def draft_start_search(self):
-        """Search for the string that represents the start of a draft"""
+        """Search for the string that represents the start of a draft.
+
+        When the app is running and new log lines appear (file grew), we read only from
+        search_offset so we only see new content. Any EventJoin in that new content is
+        treated as a new draft: we create a new draft log, set pick/pack offsets, and
+        return True so the orchestrator refreshes the UI. Same event type with a
+        different draft id (e.g. second cube draft) is also treated as a new draft.
+        Replay-from-start (e.g. app just opened, reading from offset 0) does not create
+        a new log or log 'New draft detected'.
+        """
         update = False
         event_type = ""
         event_line = ""
@@ -172,6 +184,10 @@ class ArenaScanner:
                 )
             self.file_size = arena_file_size
             offset = self.search_offset
+            # Suppress "new draft" only when replaying from start (e.g. app opened after draft finished), not after log rotation
+            is_replay_from_start = offset == 0 and not getattr(self, "_log_cleared", False)
+            self._log_cleared = False
+            self._replaying_log = is_replay_from_start  # so pack search doesn't log "New DraftId" when replaying
             with open(self.arena_file, "r", encoding="utf-8", errors="replace") as log:
                 log.seek(offset)
                 while True:
@@ -228,11 +244,12 @@ class ArenaScanner:
                             logger.error(f"Error parsing Deck Recovery line: {e}")
 
             if update:
-                self.__new_log(self.draft_sets[0], event_type, draft_id)
-                self.draft_log.info(event_line)
                 self.pick_offset = self.draft_start_offset
                 self.pack_offset = self.draft_start_offset
-                logger.info("New draft detected %s, %s", event_type, self.draft_sets)
+                if not is_replay_from_start:
+                    self.__new_log(self.draft_sets[0], event_type, draft_id)
+                    self.draft_log.info(event_line)
+                    logger.info("New draft detected %s, %s", event_type, self.draft_sets)
         except Exception as error:
             logger.error(error)
 
@@ -247,11 +264,14 @@ class ArenaScanner:
             draft_id = json_find("id", event_data)
             event_name = json_find("EventName", event_data)
 
-            # If the event is the same as the current event, then don't reset the draft data
+            # Same event name and same draft id (or no id change) = same draft, no reset
             if self.event_string == event_name:
-                return update, event_type, draft_id
+                if not (draft_id and self.current_draft_id and draft_id != self.current_draft_id):
+                    return update, event_type, draft_id
+                # Same event type but new draft id (e.g. second cube draft) = new draft, fall through
 
-            logger.info("Event found %s", event_name)
+            if not getattr(self, "_replaying_log", False):
+                logger.info("Event found %s", event_name)
             event_match, event_type, event_label, event_set, number_of_players = (
                 self.__check_special_event(event_name)
             )
@@ -431,6 +451,7 @@ class ArenaScanner:
             ):
                 update = True
 
+        self._replaying_log = False
         return update
 
     def __get_ocr_pack(self, persist):
@@ -1176,11 +1197,20 @@ class ArenaScanner:
         return result
 
     def retrieve_set_metrics(self):
-        return SetMetrics(self.set_data)
+        if self._cached_metrics is None:
+            self._cached_metrics = SetMetrics(self.set_data)
+        return self._cached_metrics
 
     def retrieve_tier_data(self):
         event_set, _ = self.retrieve_current_limited_event()
+        if (
+            self._cached_tier_data is not None
+            and self._cached_tier_event_set == event_set
+        ):
+            return self._cached_tier_data
         data, _ = self.tier_list.retrieve_data(event_set)
+        self._cached_tier_data = data
+        self._cached_tier_event_set = event_set
         return data
 
     def retrieve_color_win_rate(self, label_type):
