@@ -73,6 +73,8 @@ class TestLogPipelineIntegration:
             "tkinter.messagebox.askyesno",
             lambda *a, **k: False,
         )
+        # Never write to the real app config so tests do not reset user settings
+        monkeypatch.setattr("src.configuration.write_configuration", lambda *a, **k: None)
 
         config = Configuration()
         config.settings.arena_log_location = str(log_file)

@@ -125,6 +125,9 @@ class DraftApp:
     def _restore_sash(self):
         try:
             sash_pos = getattr(self.configuration.settings, "paned_window_sash", 400)
+            # Ensure top pane has minimum height so bottom section cannot cover the full UI
+            min_top_height = 280
+            sash_pos = max(sash_pos, min_top_height)
             if sash_pos > 0:
                 self.splitter.sashpos(0, sash_pos)
         except Exception:
@@ -134,7 +137,9 @@ class DraftApp:
         """Save geometry and sash state before closing."""
         try:
             self.configuration.settings.main_window_geometry = self.root.geometry()
-            self.configuration.settings.paned_window_sash = self.splitter.sashpos(0)
+            sash_pos = self.splitter.sashpos(0)
+            min_top_height = 280
+            self.configuration.settings.paned_window_sash = max(sash_pos, min_top_height)
             write_configuration(self.configuration)
         except Exception:
             pass

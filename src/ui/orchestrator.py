@@ -1,6 +1,8 @@
 import os
+import re
 import logging
 from src.configuration import write_configuration
+from src.utils import normalize_set_code_for_match
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +66,16 @@ class DraftOrchestrator:
         format_match = None
         set_match = None
 
-        # FIX: Clean the set code for robust matching (e.g. CUBE-POWERED)
-        clean_s_code = s_code.replace(" ", "").upper()
-        set_prefix = f"[{clean_s_code}]"
+        # Use canonical set-code normalizer so filenames, API names, and event set always match
+        norm_s_code = normalize_set_code_for_match(s_code)
 
         for label, path in sources.items():
-            # FIX: Clean the label to ignore spacing differences (e.g. [Cube - Powered] vs [CUBE-POWERED])
+            # Extract set part from label e.g. "[Cube - Powered] PremierDraft (All)" -> "Cube - Powered"
+            m = re.match(r"\[([^\]]+)\]", label)
+            set_part = m.group(1) if m else label
             clean_label = label.replace(" ", "").upper()
 
-            if set_prefix in clean_label:
+            if normalize_set_code_for_match(set_part) == norm_s_code:
                 if not set_match:
                     set_match = path
 

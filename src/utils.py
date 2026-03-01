@@ -74,16 +74,17 @@ def json_find(key, obj):
 
 def retrieve_local_set_list(codes=None, names=None):
     """Scans the Sets folder and returns a list of valid set files.
-    When codes is provided, only files whose set code matches are read (faster startup)."""
+    When codes is provided, only files whose set code matches are read (faster startup).
+    Set codes are normalized (spaces/hyphens removed) so e.g. 'Cube - Powered' matches 'CUBE-POWERED'."""
     file_list = []
     error_list = []
-    cleaned_codes = [c.upper() for c in codes] if codes else None
+    # Normalize for comparison so "CUBE-POWERED" and "Cube - Powered" match
+    normalized_codes = [normalize_set_code_for_match(c) for c in codes] if codes else None
     for file in os.listdir(SETS_FOLDER):
         if not file.endswith(".json"):
             continue
-        # Skip files for other sets when filtering by code (avoids reading large files at startup)
         parts = file.replace(".json", "").split("_")
-        if cleaned_codes and len(parts) >= 1 and parts[0].upper() not in cleaned_codes:
+        if normalized_codes and len(parts) >= 1 and normalize_set_code_for_match(parts[0]) not in normalized_codes:
             continue
         try:
             dataset_info = read_dataset_info(file, codes, names)
@@ -211,10 +212,19 @@ def clean_string(input_string: str, uppercase: bool = True) -> str:
     return input_string.upper() if uppercase else input_string
 
 
+def normalize_set_code_for_match(s: str) -> str:
+    """Canonical normalizer for comparing set codes (files, API names, event set).
+    Use this whenever matching a set code to the set list or to filenames.
+    E.g. 'CUBE-POWERED', 'Cube - Powered', 'Cube_Powered' -> 'CUBEPOWERED'.
+    If 17Lands or filenames use other separators (e.g. en-dash), add them here."""
+    return (s or "").upper().replace(" ", "").replace("-", "").replace("_", "")
+
+
 def read_dataset_info(filename: str, codes=None, names=None):
-    """Reads the meta section of a dataset file"""
+    """Reads the meta section of a dataset file.
+    Set codes are normalized so e.g. filename CUBE-POWERED matches list 'Cube - Powered'."""
     name_segments = filename.split("_")
-    cleaned_codes = [clean_string(code) for code in codes] if codes else None
+    normalized_codes = [normalize_set_code_for_match(c) for c in codes] if codes else None
     if len(name_segments) == 4:
         set_code = name_segments[0].upper()
         event_type = name_segments[1]
@@ -224,15 +234,19 @@ def read_dataset_info(filename: str, codes=None, names=None):
         return ()
 
     if (
-        (cleaned_codes and set_code not in cleaned_codes)
+        (normalized_codes and normalize_set_code_for_match(set_code) not in normalized_codes)
         or (event_type not in LIMITED_TYPES_DICT)
         or (user_group not in LIMITED_GROUPS_LIST)
         or (file_suffix != SET_FILE_SUFFIX)
     ):
         return ()
 
-    if names:
-        set_name = list(names)[list(cleaned_codes).index(name_segments[0].upper())]
+    if names and normalized_codes:
+        try:
+            idx = list(normalized_codes).index(normalize_set_code_for_match(set_code))
+            set_name = list(names)[idx]
+        except ValueError:
+            set_name = set_code
     else:
         set_name = set_code
 

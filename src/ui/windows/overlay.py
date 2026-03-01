@@ -7,7 +7,7 @@ import tkinter
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from src import constants
-from src.card_logic import row_color_tag, format_gihwr_column
+from src.card_logic import row_color_tag, format_gihwr_column, format_gpwr_column
 from src.mana_images import ManaImageCache
 from src.ui.styles import Theme
 from src.ui.components import DynamicTreeviewManager, CardToolTip
@@ -179,6 +179,7 @@ class CompactOverlay(tb.Toplevel):
             stats = deck_colors.get(active_filter, {})
             rec = rec_map.get(name)
             gihwr_display, gihwr_sort = format_gihwr_column(deck_colors, active_filter)
+            gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
             mana_photo = self._mana_cache.get_for_card(
                 card.get(constants.DATA_FIELD_MANA_COST)
                 or card.get(constants.DATA_FIELD_COLORS, [])
@@ -222,6 +223,8 @@ class CompactOverlay(tb.Toplevel):
                         row_values.append(f"{val:.0f}" if val != 0.0 else "-")
                 elif field == "gihwr":
                     row_values.append(gihwr_display)
+                elif field == "gpwr":
+                    row_values.append(gpwr_display)
                 elif field == "colors":
                     row_values.append("".join(card.get("colors", [])))
                 elif field == "tags":
@@ -258,8 +261,7 @@ class CompactOverlay(tb.Toplevel):
                     else:
                         row_values.append(
                             f"{val:.1f}"
-                            if field
-                            in ["ohwr", "gpwr", "gnswr", "gdwr", "iwd"]
+                            if field in ["ohwr", "gnswr", "gdwr", "iwd"]
                             else str(val)
                         )
 

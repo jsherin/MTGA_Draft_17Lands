@@ -9,7 +9,7 @@ from tkinter import ttk
 from typing import List, Dict, Any
 
 from src import constants
-from src.card_logic import stack_cards, copy_deck, row_color_tag, format_gihwr_column
+from src.card_logic import stack_cards, copy_deck, row_color_tag, format_gihwr_column, format_gpwr_column
 from src.mana_images import ManaImageCache
 from src.ui.styles import Theme
 from src.ui.components import (
@@ -206,6 +206,9 @@ class TakenCardsPanel(ttk.Frame):
                 elif field == "gihwr":
                     gihwr_display, _ = format_gihwr_column(deck_colors, active_filter)
                     row_values.append(gihwr_display)
+                elif field == "gpwr":
+                    gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
+                    row_values.append(gpwr_display)
                 elif field == "colors":
                     row_values.append("".join(card.get("colors", [])))
                 elif field == "tags":

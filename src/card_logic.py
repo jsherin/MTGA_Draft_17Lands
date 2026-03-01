@@ -202,6 +202,47 @@ def format_gihwr_column(deck_colors, current_filter):
     return "-", 0.0
 
 
+def format_gpwr_column(deck_colors, current_filter):
+    """
+    Format the GPWR table column with primary (current filter) value plus
+    two-color pair breakdown, same structure as format_gihwr_column.
+    Returns (display_string, sort_value).
+    """
+    if not deck_colors:
+        return "-", 0.0
+    primary_stats = deck_colors.get(current_filter, {})
+    primary_gpwr = primary_stats.get(constants.DATA_FIELD_GPWR, 0.0)
+    has_primary = primary_gpwr and primary_gpwr != 0.0
+
+    pair_entries = []
+    for pair in constants.TWO_COLOR_PAIRS:
+        if pair in deck_colors and pair != current_filter:
+            gpwr = deck_colors[pair].get(constants.DATA_FIELD_GPWR, 0.0)
+            if gpwr and gpwr != 0.0:
+                pair_entries.append((pair, gpwr))
+    pair_entries.sort(key=lambda x: x[1], reverse=True)
+    pair_strs = [f"{p}: {g:.1f}" for p, g in pair_entries]
+    ad_gpwr = 0.0
+    if current_filter and constants.FILTER_OPTION_ALL_DECKS in deck_colors:
+        ad_gpwr = deck_colors[constants.FILTER_OPTION_ALL_DECKS].get(
+            constants.DATA_FIELD_GPWR, 0.0
+        )
+        if ad_gpwr and ad_gpwr != 0.0:
+            pair_strs.append(f"AD: {ad_gpwr:.1f}")
+
+    if has_primary:
+        left = f"{current_filter}: {primary_gpwr:.1f}" if current_filter else f"{primary_gpwr:.1f}"
+        parts = [left] + pair_strs
+        return "  ".join(parts), primary_gpwr
+    if pair_strs:
+        if current_filter:
+            sort_val = 0.0
+        else:
+            sort_val = pair_entries[0][1] if pair_entries else ad_gpwr
+        return "  ".join(pair_strs), sort_val
+    return "-", 0.0
+
+
 def field_process_sort(field_value):
     """Helper for treeview sorting."""
     try:

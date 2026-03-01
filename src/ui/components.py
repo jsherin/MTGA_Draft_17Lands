@@ -520,9 +520,9 @@ class ModernTreeview(ttk.Treeview):
                 label = COLUMN_FIELD_LABELS.get(col, str(col).upper()).split(":")[0]
 
             self.base_labels[col] = label
-            width = 200 if col == "name" else 65
+            width = 200 if col == "name" else (130 if col in ("gihwr", "gpwr") else 65)
             self.heading(col, text=label, command=lambda c=col: self._handle_sort(c))
-            anchor = tkinter.W if col in ("name", "gihwr") else tkinter.CENTER
+            anchor = tkinter.W if col in ("name", "gihwr", "gpwr") else tkinter.CENTER
             self.column(col, width=width, anchor=anchor)
 
     def _setup_row_colors(self):
@@ -565,11 +565,10 @@ class ModernTreeview(ttk.Treeview):
 
         def _key(t):
             cell = t[0][col_idx]
-            # GIHWR column: sort by the filtered color's value when a filter is set
-            if col == "gihwr" and gihwr_filter and isinstance(cell, str):
+            # GIHWR/GPWR column: sort by the filtered color's value when a filter is set
+            if col in ("gihwr", "gpwr") and gihwr_filter and isinstance(cell, str):
                 stripped = cell.replace("*", "").replace("%", "").strip()
                 if stripped and stripped not in ("NA", "-", ""):
-                    # Match "FILTER: 55.0" (filter may contain spaces e.g. "All Decks")
                     m = re.search(
                         re.escape(gihwr_filter) + r"\s*:\s*([\d.]+)",
                         stripped,
@@ -579,7 +578,6 @@ class ModernTreeview(ttk.Treeview):
                             return (1, float(m.group(1)), str(t[0][0]).lower())
                         except ValueError:
                             pass
-                    # Card has no data for the selected filter — sort below cards that do
                     return (0, 0.0, str(t[0][0]).lower())
             p = field_process_sort(cell)
             if isinstance(p, tuple):
