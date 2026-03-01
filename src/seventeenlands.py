@@ -8,7 +8,8 @@ import time
 import os
 import json
 import logging
-from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Any, Optional, Tuple
 from src.utils import is_cache_stale, normalize_color_string
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,8 @@ class Seventeenlands:
         if not os.path.exists(self.CACHE_DIR):
             os.makedirs(self.CACHE_DIR)
 
+    DOWNLOAD_MAX_WORKERS = 4
+
     def download_set_data(
         self,
         set_code: str,
@@ -37,44 +40,44 @@ class Seventeenlands:
         progress_callback=None,
     ) -> Dict[str, Any]:
         """
-        Builds a full multi-archetype dataset.
+        Builds a full multi-archetype dataset. Fetches archetypes in parallel to reduce total time.
         """
         master_card_map = {}
         target_colors = colors if colors else self.ARCHETYPES
-
         start_time = time.time()
+        n = len(target_colors)
 
-        for i, color in enumerate(target_colors):
-            pct = int((i / len(target_colors)) * 100)
-
-            if progress_callback:
-                elapsed = time.time() - start_time
-                if i > 0:
-                    # Calculate rolling average time per request
-                    avg_time = elapsed / i
-                    rem_time = avg_time * (len(target_colors) - i)
-                else:
-                    # Initial guess: ~1.5s delay + ~0.5s network time per archetype
-                    rem_time = 2.0 * len(target_colors)
-
-                rem_mins = int(rem_time // 60)
-                rem_secs = int(rem_time % 60)
-                eta_str = f"{rem_mins}m {rem_secs}s" if rem_mins > 0 else f"{rem_secs}s"
-
-                msg = f"Downloading '{color}' ({i+1}/{len(target_colors)}) - {pct}% [ETA: {eta_str}]"
-                progress_callback(msg, pct)
-
-            # Fetch raw data (from cache or network)
+        def fetch_one(color: str) -> Tuple[str, Any, bool]:
             raw_data, from_cache = self._fetch_archetype_with_cache(
                 set_code, draft_format, color, user_group
             )
+            return (color, raw_data, from_cache)
 
-            # Process into master map
+        results = []
+        with ThreadPoolExecutor(max_workers=self.DOWNLOAD_MAX_WORKERS) as executor:
+            future_to_color = {
+                executor.submit(fetch_one, color): color for color in target_colors
+            }
+            done = 0
+            for future in as_completed(future_to_color):
+                color, raw_data, from_cache = future.result()
+                results.append((color, raw_data))
+                done += 1
+                if progress_callback:
+                    pct = int((done / n) * 100)
+                    elapsed = time.time() - start_time
+                    avg_time = elapsed / done if done else 1.0
+                    rem_time = avg_time * (n - done)
+                    rem_mins = int(rem_time // 60)
+                    rem_secs = int(rem_time % 60)
+                    eta_str = f"{rem_mins}m {rem_secs}s" if rem_mins > 0 else f"{rem_secs}s"
+                    msg = f"Downloading '{color}' ({done}/{n}) - {pct}% [ETA: {eta_str}]"
+                    progress_callback(msg, pct)
+
+        # Process in stable order so "All Decks" etc. are merged consistently
+        results.sort(key=lambda x: target_colors.index(x[0]))
+        for color, raw_data in results:
             self._process_archetype_data(color, raw_data, master_card_map)
-
-            # Throttle ONLY if we actually hit the network, otherwise blast through cache!
-            if not from_cache:
-                time.sleep(1.5)
 
         if progress_callback:
             progress_callback("Finalizing Dataset...", 100)
@@ -97,7 +100,7 @@ class Seventeenlands:
             except json.JSONDecodeError:
                 pass  # Cache corrupt, fetch new
 
-        # Build URL
+        # Build URL (use requests.get for thread-safety when called in parallel)
         url = (
             f"{self.URL_BASE}/card_ratings/data?expansion={set_code.upper()}"
             f"&format={draft_format}"
@@ -107,7 +110,7 @@ class Seventeenlands:
         if user_group and user_group != "All":
             url += f"&user_group={user_group}"
 
-        response = self.session.get(url, timeout=30)
+        response = requests.get(url, headers=self.HEADERS, timeout=30)
         response.raise_for_status()
         data = response.json()
 

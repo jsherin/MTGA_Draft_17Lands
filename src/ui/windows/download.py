@@ -6,6 +6,8 @@ asynchronous feedback.
 """
 
 import tkinter
+import threading
+import queue
 from tkinter import ttk, messagebox
 from datetime import date, datetime
 from typing import Callable, Any, Optional, Dict
@@ -196,70 +198,117 @@ class DownloadWindow(ttk.Frame):
             )
 
     def _start_download(self, args: DatasetArgs = None):
-        """Internal logic for initiating a download. Tests target this method."""
-        self.btn_dl.configure(state="disabled")
+        """Internal logic for initiating a download. Runs heavy work in a background thread."""
         try:
-            # Input Validation
+            thr = int(self.vars["threshold"].get().strip() or "500")
+        except ValueError:
+            messagebox.showerror("Download Error", "The 'Min Games' field must contain a numeric value.")
+            return
+
+        self.btn_dl.configure(state="disabled")
+        self.progress["value"] = 0
+
+        # Capture form values on main thread (worker must not touch tkinter vars)
+        set_key = self.vars["set"].get()
+        event = self.vars["event"].get()
+        start = self.vars["start"].get()
+        end = self.vars["end"].get()
+        group = self.vars["group"].get()
+
+        update_queue = queue.Queue()
+        result_queue = queue.Queue()
+
+        # Wrappers: worker puts updates on queue; main thread applies them in _poll_download_result
+        class DeferredProgress:
+            def __setitem__(_, key, value):
+                update_queue.put(("progress", key, value))
+
+        class DeferredStatusVar:
+            def set(_, value):
+                update_queue.put(("status", value))
+
+        class DeferredUI:
+            def update(_):
+                update_queue.put(("ui",))
+
+        def run():
             try:
-                thr = int(self.vars["threshold"].get().strip() or "500")
-            except ValueError:
-                raise Exception("The 'Min Games' field must contain a numeric value.")
-
-            ex = FileExtractor(
-                self.configuration.settings.database_location,
-                self.progress,
-                self.vars["status"],
-                self,
-                threshold=thr,
-            )
-            ex.clear_data()
-            ex.select_sets(self.sets_data[self.vars["set"].get()])
-            ex.set_draft_type(self.vars["event"].get())
-            ex.set_start_date(self.vars["start"].get())
-            ex.set_end_date(self.vars["end"].get())
-            ex.set_user_group(self.vars["group"].get())
-            ex.set_version(3.0)
-
-            suc = True
-            if args and args.color_ratings:
-                ex.set_game_count(args.game_count)
-                ex.set_color_ratings(args.color_ratings)
-            else:
-                suc, gc = ex.retrieve_17lands_color_ratings()
-
-            if suc:
-                # If FileExtractor returns 2, this will error "not enough values"
-                # If FileExtractor returns 3, this works.
-                # If code was (success, msg = ...), then 3 values crashes it with "too many values"
-                success, msg, size = ex.download_card_data(0)
-
-                if success:
-                    self.configuration.card_data.latest_dataset = ex.export_card_data()
-                    write_configuration(self.configuration)
-                    self._update_table()
-                    if self.on_update_callback:
-                        self.on_update_callback()
-
-                    # Differentiate between full success and partial success
-                    if "Min Games" in msg:
-                        self.vars["status"].set("DOWNLOADED (LIMITED DATA)")
-                        messagebox.showwarning(
-                            "Partial Data",
-                            msg
-                            + "\n\nTry lowering the Min Games threshold to get color-specific data.",
-                        )
-                    else:
-                        self.vars["status"].set("DOWNLOAD SUCCESSFUL")
-                else:
-                    raise Exception(msg)
-            else:
-                raise Exception(
-                    "Failed to connect to 17Lands. You may be rate-limited or the dataset doesn't exist."
+                ex = FileExtractor(
+                    self.configuration.settings.database_location,
+                    DeferredProgress(),
+                    DeferredStatusVar(),
+                    DeferredUI(),
+                    threshold=thr,
                 )
+                ex.clear_data()
+                ex.select_sets(self.sets_data[set_key])
+                ex.set_draft_type(event)
+                ex.set_start_date(start)
+                ex.set_end_date(end)
+                ex.set_user_group(group)
+                ex.set_version(3.0)
 
-        except Exception as e:
+                suc = True
+                if args and args.color_ratings:
+                    ex.set_game_count(args.game_count)
+                    ex.set_color_ratings(args.color_ratings)
+                else:
+                    suc, gc = ex.retrieve_17lands_color_ratings()
+
+                if not suc:
+                    result_queue.put((False, None, "Failed to connect to 17Lands. You may be rate-limited or the dataset doesn't exist.", None, None))
+                    return
+
+                success, msg, size = ex.download_card_data(0)
+                result_queue.put((True, success, msg, size, ex))
+            except Exception as e:
+                result_queue.put((False, None, str(e), None, None))
+
+        def poll():
+            try:
+                while True:
+                    item = update_queue.get_nowait()
+                    if item[0] == "progress":
+                        self.progress[item[1]] = item[2]
+                    elif item[0] == "status":
+                        self.vars["status"].set(item[1])
+                    else:
+                        self.update_idletasks()
+            except queue.Empty:
+                pass
+            try:
+                result = result_queue.get_nowait()
+                self._on_download_done(*result)
+                return
+            except queue.Empty:
+                self.after(100, poll)
+
+        self._download_thread = threading.Thread(target=run, daemon=True)
+        self._download_thread.start()
+        self.after(100, poll)
+
+    def _on_download_done(self, ok: bool, success, msg, size, ex):
+        """Runs on the main thread after the download worker finishes."""
+        self.btn_dl.configure(state="normal")
+        self.progress["value"] = 0
+        if not ok:
             self.vars["status"].set("DOWNLOAD FAILED")
-            messagebox.showerror("Download Error", str(e))
-        finally:
-            self.btn_dl.configure(state="normal")
-            self.progress["value"] = 0
+            messagebox.showerror("Download Error", msg)
+            return
+        if not success:
+            self.vars["status"].set("DOWNLOAD FAILED")
+            messagebox.showerror("Download Error", msg)
+            return
+        self.configuration.card_data.latest_dataset = ex.export_card_data()
+        write_configuration(self.configuration)
+        self._update_table()
+        if self.on_update_callback:
+            self.on_update_callback()
+        if "Min Games" in msg:
+            self.vars["status"].set("DOWNLOADED (LIMITED DATA)")
+            messagebox.showwarning(
+                "Partial Data",
+                msg + "\n\nTry lowering the Min Games threshold to get color-specific data.",
+            )
+        else:
+            self.vars["status"].set("DOWNLOAD SUCCESSFUL")

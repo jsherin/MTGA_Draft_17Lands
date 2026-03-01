@@ -58,7 +58,7 @@ class DraftOrchestrator:
         if not s_code:
             return False
 
-        sources = self.scanner.retrieve_data_sources()
+        sources = self.scanner.retrieve_data_sources(codes=[s_code])
 
         exact_match = None
         format_match = None

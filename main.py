@@ -71,15 +71,13 @@ def load_data(args, config, progress_callback):
     )
 
     # 5. DATASET PRE-LOAD
-    # Attempt to load the most recently used dataset so the app isn't empty on launch
+    # Load only the last-used dataset by path (avoids scanning/parsing every set file)
     last_dataset = config.card_data.latest_dataset
     if last_dataset:
-        progress_callback(f"Indexing {last_dataset.split('_')[0]}...")
-        sources = scanner.retrieve_data_sources()
-        for label, path in sources.items():
-            if os.path.basename(path) == last_dataset:
-                scanner.retrieve_set_data(path)
-                break
+        path = os.path.join(constants.SETS_FOLDER, last_dataset)
+        if os.path.exists(path):
+            progress_callback(f"Indexing {last_dataset.split('_')[0]}...")
+            scanner.retrieve_set_data(path)
 
     return {"scanner": scanner, "config": config}
 

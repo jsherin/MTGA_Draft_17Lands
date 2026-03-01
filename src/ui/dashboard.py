@@ -25,11 +25,19 @@ from src.ui.advisor_view import AdvisorPanel
 
 
 class DashboardFrame(ttk.Frame):
-    def __init__(self, parent, configuration, on_card_select, on_reconfigure_ui):
+    def __init__(
+        self,
+        parent,
+        configuration,
+        on_card_select,
+        on_reconfigure_ui,
+        on_column_change=None,
+    ):
         super().__init__(parent)
         self.configuration = configuration
         self.on_card_select = on_card_select
         self.on_reconfigure_ui = on_reconfigure_ui
+        self.on_column_change = on_column_change or on_reconfigure_ui
 
         # Managers and Components
         self.pack_manager: Optional[DynamicTreeviewManager] = None
@@ -69,7 +77,7 @@ class DashboardFrame(ttk.Frame):
             self.table_pack_container.content_frame,
             view_id="pack_table",
             configuration=self.configuration,
-            on_update_callback=self.on_reconfigure_ui,
+            on_update_callback=self.on_column_change,
         )
         self.pack_manager.pack(fill="both", expand=True)
         self.pack_manager.tree.bind(
@@ -91,7 +99,7 @@ class DashboardFrame(ttk.Frame):
             self.table_missing_container.content_frame,
             view_id="missing_table",
             configuration=self.configuration,
-            on_update_callback=self.on_reconfigure_ui,
+            on_update_callback=self.on_column_change,
         )
         self.missing_manager.pack(fill="both", expand=True)
         self.missing_manager.tree.bind(

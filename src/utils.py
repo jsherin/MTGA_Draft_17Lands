@@ -73,12 +73,19 @@ def json_find(key, obj):
 
 
 def retrieve_local_set_list(codes=None, names=None):
-    """Scans the Sets folder and returns a list of valid set files"""
+    """Scans the Sets folder and returns a list of valid set files.
+    When codes is provided, only files whose set code matches are read (faster startup)."""
     file_list = []
     error_list = []
+    cleaned_codes = [c.upper() for c in codes] if codes else None
     for file in os.listdir(SETS_FOLDER):
+        if not file.endswith(".json"):
+            continue
+        # Skip files for other sets when filtering by code (avoids reading large files at startup)
+        parts = file.replace(".json", "").split("_")
+        if cleaned_codes and len(parts) >= 1 and parts[0].upper() not in cleaned_codes:
+            continue
         try:
-
             dataset_info = read_dataset_info(file, codes, names)
             if dataset_info:
                 file_list.append(dataset_info)

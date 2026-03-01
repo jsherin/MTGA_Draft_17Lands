@@ -78,6 +78,10 @@ class ArenaScanner:
         self.taken_cards = []
         self.sideboard = []
         self.previous_picked_pack = 0
+        # Cached for the duration of the draft (set data and event don't change between picks)
+        self._cached_metrics = None
+        self._cached_tier_data = None
+        self._cached_tier_event_set = None
         self.current_picked_pick = 0
         self.file_size = 0
         self.data_source = "None"
@@ -545,9 +549,11 @@ class ArenaScanner:
         reason = ""
 
         # Condition 0: DraftId changed (Unique Draft Instance detected)
+        # Skip during initial replay (app just opened) so we don't log/wipe when replaying multiple drafts in the log
         if draft_id and self.current_draft_id and draft_id != self.current_draft_id:
-            wipe_needed = True
-            reason = f"New DraftId detected ({draft_id})"
+            if not getattr(self, "_replaying_log", False):
+                wipe_needed = True
+                reason = f"New DraftId detected ({draft_id})"
 
         # Condition 1: Explicit P1P1
         elif pack == 1 and pick == 1:
@@ -1109,11 +1115,12 @@ class ArenaScanner:
             updated = True
         return updated
 
-    def retrieve_data_sources(self):
-        """Return a list of set files that can be used with the current active draft"""
+    def retrieve_data_sources(self, codes=None):
+        """Return a list of set files that can be used with the current active draft.
+        When codes is provided, only those set files are read (faster when syncing to one set)."""
         data_sources = {}
         try:
-            file_list, error_list = retrieve_local_set_list()
+            file_list, error_list = retrieve_local_set_list(codes=codes)
             for error_string in error_list:
                 logger.error(error_string)
 
@@ -1161,6 +1168,7 @@ class ArenaScanner:
     def retrieve_set_data(self, file):
         result = Result.ERROR_MISSING_FILE
         self.set_data.clear()
+        self._cached_metrics = None
         try:
             result = self.set_data.open_file(file)
         except Exception as error:

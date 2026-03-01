@@ -79,15 +79,11 @@ class DraftApp:
             or self.notebook.select(self.panel_data),
         )
 
-        # 5. Boot Synchronization
+        # 5. Boot: enable log, apply theme (fast). Defer heavy data/refresh so window appears first.
         self._initialized = True
         self.orchestrator.scanner.log_enable(
             self.configuration.settings.draft_log_enabled
         )
-        self._update_data_sources()
-        self._update_deck_filter_options()
-
-        # Apply Configuration Styling
         current_scale = constants.UI_SIZE_DICT.get(
             self.configuration.settings.ui_size, 1.0
         )
@@ -99,32 +95,32 @@ class DraftApp:
             scale=current_scale,
         )
 
-        self._refresh_ui_data()
-
-        # Logic: Default to Datasets tab if no valid data source is loaded
-        if not self.configuration.card_data.latest_dataset:
-            self.notebook.select(self.panel_data)
-
-        # Trigger update checks immediately
-        self.root.after(1000, self.notifications.check_for_updates)
-
-        # 6. Reveal
+        # 6. Reveal window immediately so UI stays responsive
         if splash:
             splash.close()
-
         self.root.title(f"MTGA Draft Tool v{constants.APPLICATION_VERSION}")
-
-        # Load window geometry
         geom = getattr(self.configuration.settings, "main_window_geometry", "")
         if geom and "x" in geom:
             self.root.geometry(geom)
         else:
             self.root.geometry("1200x800")
-
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.deiconify()
         self._schedule_update()
         self.root.after(100, self._restore_sash)
+        # Defer heavy work so the window paints and doesn't go "Not responding"
+        self.root.after(0, self._deferred_initial_load)
+        self.root.after(1000, self.notifications.check_for_updates)
+
+    def _deferred_initial_load(self):
+        """Runs after the window is shown so the UI doesn't block before first paint."""
+        self._update_data_sources()
+        self.root.update_idletasks()
+        self._update_deck_filter_options()
+        self.root.update_idletasks()
+        self._refresh_ui_data()
+        if not self.configuration.card_data.latest_dataset:
+            self.notebook.select(self.panel_data)
 
     def _restore_sash(self):
         try:
@@ -259,6 +255,7 @@ class DraftApp:
             self.configuration,
             self._on_card_select,
             self._refresh_ui_data,
+            on_column_change=self._repopulate_dashboard_only,
         )
         self.splitter.add(self.dashboard, weight=4)
 
@@ -449,6 +446,33 @@ class DraftApp:
 
         self.dashboard.update_deck_balance(taken_cards)
 
+    def _repopulate_dashboard_only(self):
+        """Lightweight refresh: repopulate pack/missing tables and overlay only (no advisor, no other panels). Used when column config changes."""
+        if not self._initialized or self._rebuilding_ui:
+            return
+        pack_cards = self.orchestrator.scanner.retrieve_current_pack_cards()
+        missing_cards = self.orchestrator.scanner.retrieve_current_missing_cards()
+        taken_cards = self.orchestrator.scanner.retrieve_taken_cards()
+        metrics = self.orchestrator.scanner.retrieve_set_metrics()
+        tier_data = self.orchestrator.scanner.retrieve_tier_data()
+        pk, pi = self.orchestrator.scanner.retrieve_current_pack_and_pick()
+        colors = filter_options(
+            taken_cards,
+            self.configuration.settings.deck_filter,
+            metrics,
+            self.configuration,
+        )
+        self.dashboard.update_pack_data(
+            pack_cards, colors, metrics, tier_data, pi, source_type="pack", recommendations=[]
+        )
+        self.dashboard.update_pack_data(
+            missing_cards, colors, metrics, tier_data, pi, source_type="missing"
+        )
+        if self.overlay_window:
+            self.overlay_window.update_data(
+                pack_cards, colors, metrics, tier_data, pi, []
+            )
+
     def _calculate_signals(self, metrics):
         from src.signals import SignalCalculator
 
@@ -552,18 +576,17 @@ class DraftApp:
         self.vars["set_label"].set(f"SET: {display_name}")
         self.lbl_set_code.config(foreground=Theme.ACCENT)
 
-        all_files, _ = retrieve_local_set_list()
-        self.current_set_data_map = {}
-
-        for f in all_files:
-            file_set, f_event, f_group, _, _, _, f_path, _ = f
-            if file_set != current_set:
-                continue
-
-            if f_event not in self.current_set_data_map:
-                self.current_set_data_map[f_event] = {}
-
-            self.current_set_data_map[f_event][f_group] = f_path
+        # Only re-read set files from disk when set/event changed or map not yet built; on each pick reuse existing map
+        if event_transitioned or not self.current_set_data_map:
+            all_files, _ = retrieve_local_set_list(codes=[current_set])
+            self.current_set_data_map = {}
+            for f in all_files:
+                file_set, f_event, f_group, _, _, _, f_path, _ = f
+                if file_set != current_set:
+                    continue
+                if f_event not in self.current_set_data_map:
+                    self.current_set_data_map[f_event] = {}
+                self.current_set_data_map[f_event][f_group] = f_path
 
         available_events = list(self.current_set_data_map.keys())
 
