@@ -218,9 +218,16 @@ class DraftApp:
             row2, text="P1P1", command=lambda: self._manual_refresh(True), width=6
         )
 
-        # Filter (Right)
+        # Filter (Right) — larger font for readability
+        filter_font_size = max(Theme.FONT_SIZE_MAIN + 1, 11)
+        try:
+            ttk.Style().configure(
+                "Filter.TMenubutton", font=(Theme.FONT_FAMILY, filter_font_size)
+            )
+        except Exception:
+            pass
         self.om_filter = ttk.OptionMenu(
-            row2, self.vars["deck_filter"], "", style="TMenubutton"
+            row2, self.vars["deck_filter"], "", style="Filter.TMenubutton"
         )
         self.om_filter.pack(side="right", padx=2)
 
@@ -729,6 +736,9 @@ class DraftApp:
         self._deck_filter_menu_images.clear()
         menu = self.om_filter["menu"]
         menu.delete(0, "end")
+        # Larger font for filter dropdown (menu is tk.Menu)
+        filter_font_size = max(Theme.FONT_SIZE_MAIN + 1, 11)
+        menu.configure(font=(Theme.FONT_FAMILY, filter_font_size))
         for label in rate_map.keys():
             key = rate_map[label]
             photo = None
