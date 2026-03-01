@@ -207,3 +207,51 @@ class TestLogPipelineIntegration:
         assert len(rows) > 0
         missing_names = [str(tree.item(r)["values"][0]) for r in rows]
         assert any("Wrangler" in name or "90584" in name for name in missing_names)
+
+    def test_new_draft_started_while_app_running(self, env):
+        """Simulate: app is running (log already read), then a new draft starts (new lines appended).
+        Verifies that the new draft is detected and the UI resets with the new pack."""
+        app, log, root = env["app"], env["log"], env["root"]
+        scanner = app.orchestrator.scanner
+
+        # 1. Warm run: process initial log content so search_offset advances (simulates "app running")
+        app._update_loop()
+        root.update()
+        initial_offset = scanner.search_offset
+        assert initial_offset >= len("MTGA Log Start\n")
+
+        # 2. Simulate a new draft starting: append EventJoin + P1P1 pack to the fake log
+        event_join = (
+            '[UnityCrossThreadLogger]==> Event_Join {"id":"new-draft-123","request":"{\\"EventName\\":\\"PremierDraft_OTJ_20240416\\",\\"EntryCurrencyType\\":\\"Gem\\",\\"EntryCurrencyPaid\\":1500,\\"CustomTokenId\\":null}"}\n'
+        )
+        p1p1_pack = (
+            '[UnityCrossThreadLogger]==> LogBusinessEvents {"id":"p1p1-456","request":"{\\"DraftId\\":\\"new-draft-123\\",\\"EventId\\":\\"PremierDraft_OTJ_20240416\\",\\"PackNumber\\":1,\\"PickNumber\\":1,\\"CardsInPack\\":[90734,90584,90631,90362,90440,90349,90486,90527,90406,90439,90488,90480,90388,90459]}"}\n'
+        )
+        with open(log, "a") as f:
+            f.write(event_join)
+            f.write(p1p1_pack)
+
+        # 3. Trigger update (orchestrator sees file grew, reads from search_offset, sees new event)
+        changed = app.orchestrator.update_cycle()
+        assert changed, "update_cycle should see new log content and detect the draft"
+
+        # 4. Assert new draft was detected and scanner state reset
+        assert app.orchestrator.new_event_detected, "new_event_detected should be True when a new draft starts"
+        assert scanner.draft_sets is not None and len(scanner.draft_sets) > 0
+        assert scanner.draft_sets[0] == "OTJ"
+        assert scanner.current_pack == 1
+        assert scanner.current_pick == 1
+
+        # 5. UI should show the new pack (allow a few update cycles for UI to repopulate)
+        for _ in range(30):
+            root.update()
+            root.update_idletasks()
+            tree = app.dashboard.get_treeview("pack")
+            rows = tree.get_children()
+            if len(rows) >= 10:
+                break
+            time.sleep(0.05)
+
+        assert len(rows) >= 10, (
+            f"Pack table should show new draft cards (got {len(rows)} rows)"
+        )

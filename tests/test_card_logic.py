@@ -261,12 +261,13 @@ def test_format_gihwr_column_pairs_sorted_descending():
 
 
 def test_format_gihwr_column_no_primary_has_pairs():
+    """With filter WU selected, card has only UB data: display shows UB, sort_val is 0 so it sorts to bottom."""
     deck_colors = {
         "UB": {constants.DATA_FIELD_GIHWR: 54.0},
     }
     display, sort_val = format_gihwr_column(deck_colors, "WU")
     assert "UB: 54.0" in display
-    assert sort_val == 54.0
+    assert sort_val == 0.0  # no data for selected filter -> bottom of list
 
 
 def test_format_gihwr_column_zero_gihwr_excluded():

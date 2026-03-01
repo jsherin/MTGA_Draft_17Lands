@@ -5,6 +5,7 @@ Iron-clad validation for the Dataset Manager.
 
 import pytest
 import tkinter
+import time
 from unittest.mock import MagicMock, patch
 from src.ui.windows.download import DownloadWindow, DatasetArgs
 from src.limited_sets import SetInfo
@@ -84,6 +85,11 @@ class TestDownloadPanel:
             0,
         )
         panel._start_download()
+        if getattr(panel, "_download_thread", None):
+            panel._download_thread.join(timeout=2.0)
+        for _ in range(20):
+            root.update()
+            time.sleep(0.02)
         assert str(panel.btn_dl["state"]) == "normal"
 
     def test_notification_enter_handshake(self, root, mock_sets_data, config):
