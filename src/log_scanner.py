@@ -264,11 +264,13 @@ class ArenaScanner:
             draft_id = json_find("id", event_data)
             event_name = json_find("EventName", event_data)
 
-            # Same event name and same draft id (or no id change) = same draft, no reset
+            # During replay only: same event name and same/missing draft id = same draft, no reset
+            # When not replaying (file grew, we're reading new content), any Event_Join is a new draft
             if self.event_string == event_name:
-                if not (draft_id and self.current_draft_id and draft_id != self.current_draft_id):
-                    return update, event_type, draft_id
-                # Same event type but new draft id (e.g. second cube draft) = new draft, fall through
+                if getattr(self, "_replaying_log", False):
+                    if not (draft_id and self.current_draft_id and draft_id != self.current_draft_id):
+                        return update, event_type, draft_id
+                # Live: new content so treat as new draft. Replay with new draft id: fall through
 
             if not getattr(self, "_replaying_log", False):
                 logger.info("Event found %s", event_name)
