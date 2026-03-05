@@ -212,7 +212,7 @@ class ArenaScanner:
                             event_line = line
                             self.draft_start_offset = offset
 
-                    # Deck Recovery (EventSetDeckV2)
+                    # Deck Recovery (EventSetDeckV2 / Course with CardPool)
                     elif "InternalEventName" in line and "CardPool" in line:
                         try:
                             json_start = line.find("{")
@@ -222,24 +222,25 @@ class ArenaScanner:
                                     "InternalEventName", event_data
                                 )
                                 if internal_name:
-                                    dummy_payload = {"EventName": internal_name}
+                                    card_pool = json_find("CardPool", event_data)
+                                    if card_pool:
+                                        self.taken_cards = [
+                                            str(c) for c in card_pool
+                                        ]
+                                        logger.info(
+                                            f"Recovered {len(self.taken_cards)} cards from Deck Set log"
+                                        )
 
-                                    is_new, et, did = self.__check_event(dummy_payload)
+                                    dummy_payload = {"EventName": internal_name}
+                                    is_new, et, did = self.__check_event(
+                                        dummy_payload
+                                    )
                                     if is_new:
                                         update = True
                                         event_type = et
                                         draft_id = did
                                         event_line = line
                                         self.draft_start_offset = offset
-
-                                        card_pool = json_find("CardPool", event_data)
-                                        if card_pool:
-                                            self.taken_cards = [
-                                                str(c) for c in card_pool
-                                            ]
-                                            logger.info(
-                                                f"Recovered {len(self.taken_cards)} cards from Deck Set log"
-                                            )
                         except Exception as e:
                             logger.error(f"Error parsing Deck Recovery line: {e}")
 
@@ -256,7 +257,7 @@ class ArenaScanner:
         return update
 
     def __check_event(self, event_data):
-        """Parse a draft start string and extract pertinent information"""
+        """Parse a draft start string and extract pertinent information."""
         update = False
         event_type = ""
         draft_id = ""
@@ -264,13 +265,12 @@ class ArenaScanner:
             draft_id = json_find("id", event_data)
             event_name = json_find("EventName", event_data)
 
-            # During replay only: same event name and same/missing draft id = same draft, no reset
-            # When not replaying (file grew, we're reading new content), any Event_Join is a new draft
+            # Same event name and same/missing draft id = same draft, no reset.
+            # Only treat as new draft when we have a different draft id (e.g. second cube draft).
             if self.event_string == event_name:
-                if getattr(self, "_replaying_log", False):
-                    if not (draft_id and self.current_draft_id and draft_id != self.current_draft_id):
-                        return update, event_type, draft_id
-                # Live: new content so treat as new draft. Replay with new draft id: fall through
+                if not (draft_id and self.current_draft_id and draft_id != self.current_draft_id):
+                    return update, event_type, draft_id
+                # Same event type but new draft id = new draft, fall through
 
             if not getattr(self, "_replaying_log", False):
                 logger.info("Event found %s", event_name)
@@ -1095,8 +1095,8 @@ class ArenaScanner:
                                 for course in course_data["Courses"]:
                                     if course["InternalEventName"] == self.event_string:
                                         card_pool = [str(x) for x in course["CardPool"]]
-                                        if self.__sealed_update(card_pool):
-                                            update = True
+                                        self.__sealed_update(card_pool)
+                                        update = True
                             elif "Course" in line:
                                 start_offset = line.find('{"Course"')
                                 if start_offset != -1:
@@ -1118,8 +1118,8 @@ class ArenaScanner:
                                                     "CardPool"
                                                 ]
                                             ]
-                                            if self.__sealed_update(card_pool):
-                                                update = True
+                                            self.__sealed_update(card_pool)
+                                            update = True
                         except Exception as error:
                             logger.error(f"Sealed Search Error: {error}")
 
