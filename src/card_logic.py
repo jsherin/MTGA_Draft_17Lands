@@ -188,14 +188,21 @@ def format_gihwr_column(deck_colors, current_filter):
         if ad_gihwr and ad_gihwr != 0.0:
             pair_strs.append(f"AD: {ad_gihwr:.1f}")
 
+    # Offset so rows with filter data sort above rows with only AD (when a color-pair filter is selected)
+    SORT_FILTER_OFFSET = 10000.0
+    use_offset = (
+        current_filter
+        and current_filter != constants.FILTER_OPTION_ALL_DECKS
+    )
+
     if has_primary:
         left = f"{current_filter}: {primary_gihwr:.1f}" if current_filter else f"{primary_gihwr:.1f}"
         parts = [left] + pair_strs
-        return "  ".join(parts), primary_gihwr
+        sort_val = primary_gihwr + SORT_FILTER_OFFSET if use_offset else primary_gihwr
+        return "  ".join(parts), sort_val
     if pair_strs:
-        # When a filter is selected, sort by filter's value only; no data = bottom
         if current_filter:
-            sort_val = 0.0
+            sort_val = ad_gihwr  # No filter data: sort by AD so "filter first, then AD"
         else:
             sort_val = pair_entries[0][1] if pair_entries else ad_gihwr
         return "  ".join(pair_strs), sort_val
@@ -230,13 +237,20 @@ def format_gpwr_column(deck_colors, current_filter):
         if ad_gpwr and ad_gpwr != 0.0:
             pair_strs.append(f"AD: {ad_gpwr:.1f}")
 
+    SORT_FILTER_OFFSET = 10000.0
+    use_offset = (
+        current_filter
+        and current_filter != constants.FILTER_OPTION_ALL_DECKS
+    )
+
     if has_primary:
         left = f"{current_filter}: {primary_gpwr:.1f}" if current_filter else f"{primary_gpwr:.1f}"
         parts = [left] + pair_strs
-        return "  ".join(parts), primary_gpwr
+        sort_val = primary_gpwr + SORT_FILTER_OFFSET if use_offset else primary_gpwr
+        return "  ".join(parts), sort_val
     if pair_strs:
         if current_filter:
-            sort_val = 0.0
+            sort_val = ad_gpwr
         else:
             sort_val = pair_entries[0][1] if pair_entries else ad_gpwr
         return "  ".join(pair_strs), sort_val

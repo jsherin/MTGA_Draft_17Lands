@@ -485,7 +485,7 @@ class ModernTreeview(ttk.Treeview):
             if i == "add_btn":
                 self.heading(i, text="+")
                 self.column(
-                    i, width=20, minwidth=20, stretch=False, anchor=tkinter.CENTER
+                    i, width=20, minwidth=20, stretch=False, anchor=tkinter.W
                 )
                 continue
             l = (
@@ -508,7 +508,7 @@ class ModernTreeview(ttk.Treeview):
                 width=140 if i == "name" else 50,
                 minwidth=70 if i == "name" else 30,
                 stretch=True,
-                anchor=tkinter.W if i == "name" else tkinter.CENTER,
+                anchor=tkinter.W,
             )
 
     def _setup_row_colors(self):
@@ -588,6 +588,13 @@ class ModernTreeview(ttk.Treeview):
                     if m:
                         try:
                             return (1, float(m.group(1)), str(t[0][0]).lower())
+                        except ValueError:
+                            pass
+                    # No filter value: sort by AD so "filter first, then AD"
+                    ad_m = re.search(r"AD:\s*([\d.]+)", stripped)
+                    if ad_m:
+                        try:
+                            return (0, float(ad_m.group(1)), str(t[0][0]).lower())
                         except ValueError:
                             pass
                 return (0, 0.0, str(t[0][0]).lower())

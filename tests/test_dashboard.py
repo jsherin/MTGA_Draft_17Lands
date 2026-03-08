@@ -96,6 +96,37 @@ class TestDashboardFrame:
         # Index 0 is Name
         assert pack_tree.item(rows[0])["values"][0] == "Bolt"
 
+    def test_update_pack_data_gihwr_column_uses_color_pair_format(self, root, mock_config):
+        """Ensure GIHWR column uses format_gihwr_column (e.g. 'WU: 55.0  AD: 53.1'), not a single percentage."""
+        dashboard = DashboardFrame(root, mock_config, MagicMock(), MagicMock())
+        pack_tree = dashboard.pack_manager.tree
+
+        # Card with multiple deck_colors so format_gihwr_column produces "WU: 55.0  AD: 53.1" style
+        cards = [
+            {
+                constants.DATA_FIELD_NAME: "Test Card",
+                "deck_colors": {
+                    "WU": {constants.DATA_FIELD_GIHWR: 55.0},
+                    "All Decks": {constants.DATA_FIELD_GIHWR: 53.1},
+                },
+            },
+        ]
+        # Active filter WU so display includes filter prefix and AD
+        dashboard.update_pack_data(
+            cards=cards,
+            colors=["WU"],
+            metrics=MagicMock(),
+            tier_data={},
+            current_pick=1,
+        )
+
+        rows = pack_tree.get_children()
+        assert len(rows) == 1
+        # Columns: name, gihwr, alsa, ata -> GIHWR is index 1
+        gihwr_cell = pack_tree.item(rows[0])["values"][1]
+        assert "WU:" in gihwr_cell, "GIHWR column should use format_gihwr_column (filter prefix)"
+        assert "AD:" in gihwr_cell, "GIHWR column should show All Decks as AD"
+
     def test_zebra_striping_logic(self, root, mock_config):
         """Verify alternating bw_odd/bw_even tags."""
         mock_config.settings.card_colors_enabled = False

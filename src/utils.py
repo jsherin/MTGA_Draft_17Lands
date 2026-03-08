@@ -73,19 +73,10 @@ def json_find(key, obj):
 
 
 def retrieve_local_set_list(codes=None, names=None):
-    """Scans the Sets folder and returns a list of valid set files.
-    When codes is provided, only files whose set code matches are read (faster startup).
-    Set codes are normalized (spaces/hyphens removed) so e.g. 'Cube - Powered' matches 'CUBE-POWERED'."""
+    """Scans the Sets folder and returns a list of valid set files"""
     file_list = []
     error_list = []
-    # Normalize for comparison so "CUBE-POWERED" and "Cube - Powered" match
-    normalized_codes = [normalize_set_code_for_match(c) for c in codes] if codes else None
     for file in os.listdir(SETS_FOLDER):
-        if not file.endswith(".json"):
-            continue
-        parts = file.replace(".json", "").split("_")
-        if normalized_codes and len(parts) >= 1 and normalize_set_code_for_match(parts[0]) not in normalized_codes:
-            continue
         try:
             dataset_info = read_dataset_info(file, codes, names)
             if dataset_info:

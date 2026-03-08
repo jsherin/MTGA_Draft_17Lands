@@ -265,11 +265,22 @@ class CompactOverlay(tb.Toplevel):
     def _show_settings_menu(self):
         menu = tkinter.Menu(self, tearoff=0)
         filter_menu = tkinter.Menu(menu, tearoff=0)
-        for label in self.app_context.deck_filter_map.keys():
-            filter_menu.add_command(
-                label=label,
-                command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
-            )
+        key_to_label = {
+            key: label for label, key in self.app_context.deck_filter_map.items()
+        }
+        for key in constants.DECK_FILTERS:
+            if key in key_to_label:
+                label = key_to_label[key]
+                filter_menu.add_command(
+                    label=label,
+                    command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
+                )
+        for label, key in self.app_context.deck_filter_map.items():
+            if key not in constants.DECK_FILTERS:
+                filter_menu.add_command(
+                    label=label,
+                    command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
+                )
         menu.add_cascade(label="Colors (Filter)", menu=filter_menu)
 
         event_menu = tkinter.Menu(menu, tearoff=0)

@@ -90,10 +90,6 @@ class ArenaScanner:
 
         self.previous_scanned_pack = 0
         self.previous_picked_pack = 0
-        # Cached for the duration of the draft (set data and event don't change between picks)
-        self._cached_metrics = None
-        self._cached_tier_data = None
-        self._cached_tier_event_set = None
         self.current_picked_pick = 0
 
         self.data_source = "None"
@@ -956,12 +952,10 @@ class ArenaScanner:
             time.sleep(1.5)
             return False
 
-    def retrieve_data_sources(self, codes=None):
-        """Return a list of set files that can be used with the current active draft.
-        When codes is provided, only those set files are read (faster when syncing to one set)."""
+    def retrieve_data_sources(self):
         data_sources = {}
         try:
-            file_list, error_list = retrieve_local_set_list(codes=codes)
+            file_list, error_list = retrieve_local_set_list()
             for error_string in error_list:
                 logger.error(error_string)
 
@@ -1000,28 +994,20 @@ class ArenaScanner:
     def retrieve_set_data(self, file):
         with self.lock:
             self.set_data.clear()
-            self._cached_metrics = None
             result = self.set_data.open_file(file)
             self._metrics_cache = SetMetrics(self.set_data)
             return result
 
     def retrieve_set_metrics(self):
         with self.lock:
-            if self._cached_metrics is None:
-                self._cached_metrics = SetMetrics(self.set_data)
-            return self._cached_metrics
+            if not hasattr(self, "_metrics_cache") or self._metrics_cache is None:
+                self._metrics_cache = SetMetrics(self.set_data)
+            return self._metrics_cache
 
     def retrieve_tier_data(self):
         with self.lock:
             event_set, _ = self.retrieve_current_limited_event()
-            if (
-                self._cached_tier_data is not None
-                and self._cached_tier_event_set == event_set
-            ):
-                return self._cached_tier_data
             data, _ = self.tier_list.retrieve_data(event_set)
-            self._cached_tier_data = data
-            self._cached_tier_event_set = event_set
             return data
 
     def retrieve_color_win_rate(self, label_type):

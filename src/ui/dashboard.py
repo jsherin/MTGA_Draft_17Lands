@@ -464,6 +464,10 @@ class DashboardFrame(ttk.Frame):
                             row_values.append("NA")
                     else:
                         row_values.append("NA")
+                elif field == "gihwr":
+                    row_values.append(gihwr_display)
+                elif field == "gpwr":
+                    row_values.append(gpwr_display)
                 else:
                     val = stats.get(field, 0.0)
                     row_values.append(

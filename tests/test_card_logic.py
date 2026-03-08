@@ -12,6 +12,7 @@ from src.card_logic import (
     export_draft_to_csv,
     export_draft_to_json,
     format_gihwr_column,
+    format_gpwr_column,
 )
 
 # 17Lands OTJ data from 2024-4-16 to 2024-5-3
@@ -243,7 +244,8 @@ def test_format_gihwr_column_with_current_filter_and_pairs():
     assert "UB: 54.2" in display
     assert "52.0" in display
     assert "AD: 53.0" in display
-    assert sort_val == 55.0
+    # Filter WU selected: sort puts filter-data rows above AD-only (offset 10000)
+    assert sort_val == 55.0 + 10000.0
 
 
 def test_format_gihwr_column_pairs_sorted_descending():
@@ -257,17 +259,17 @@ def test_format_gihwr_column_pairs_sorted_descending():
     ub_pos = display.index("UB:")
     br_pos = display.index("BR:")
     assert ub_pos < br_pos
-    assert sort_val == 55.0
+    assert sort_val == 55.0 + 10000.0  # filter WU selected -> offset
 
 
 def test_format_gihwr_column_no_primary_has_pairs():
-    """With filter WU selected, card has only UB data: display shows UB, sort_val is 0 so it sorts to bottom."""
+    """With filter WU selected, card has only UB data (no AD): display shows UB, sort_val 0 so it sorts to bottom."""
     deck_colors = {
         "UB": {constants.DATA_FIELD_GIHWR: 54.0},
     }
     display, sort_val = format_gihwr_column(deck_colors, "WU")
     assert "UB: 54.0" in display
-    assert sort_val == 0.0  # no data for selected filter -> bottom of list
+    assert sort_val == 0.0  # no data for selected filter, no AD -> bottom
 
 
 def test_format_gihwr_column_zero_gihwr_excluded():
@@ -276,5 +278,67 @@ def test_format_gihwr_column_zero_gihwr_excluded():
         "WU": {constants.DATA_FIELD_GIHWR: 0.0},
     }
     display, sort_val = format_gihwr_column(deck_colors, "All Decks")
+    assert sort_val == 0.0
+    assert display == "-"
+
+
+def test_format_gihwr_column_no_primary_has_ad_sort_by_ad():
+    """With filter WU selected, card has only AD data: sort by AD so 'filter first, then AD'."""
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 53.5},
+    }
+    display, sort_val = format_gihwr_column(deck_colors, "WU")
+    assert "AD: 53.5" in display
+    assert sort_val == 53.5  # AD value so these rows sort below filter-data, ordered by AD
+
+
+# --- format_gpwr_column (mirror of format_gihwr_column sort logic) ---
+
+
+def test_format_gpwr_column_empty_deck_colors():
+    display, sort_val = format_gpwr_column({}, "All Decks")
+    assert display == "-"
+    assert sort_val == 0.0
+
+
+def test_format_gpwr_column_primary_only_all_decks():
+    deck_colors = {"All Decks": {constants.DATA_FIELD_GPWR: 52.0}}
+    display, sort_val = format_gpwr_column(deck_colors, "All Decks")
+    assert "52.0" in display
+    assert sort_val == 52.0
+
+
+def test_format_gpwr_column_filter_plus_pairs_offset():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GPWR: 51.0},
+        "WU": {constants.DATA_FIELD_GPWR: 54.0},
+        "UB": {constants.DATA_FIELD_GPWR: 53.0},
+    }
+    display, sort_val = format_gpwr_column(deck_colors, "WU")
+    assert "WU: 54.0" in display
+    assert "AD: 51.0" in display
+    assert sort_val == 54.0 + 10000.0
+
+
+def test_format_gpwr_column_no_primary_has_pairs():
+    deck_colors = {"UB": {constants.DATA_FIELD_GPWR: 53.0}}
+    display, sort_val = format_gpwr_column(deck_colors, "WU")
+    assert "UB: 53.0" in display
+    assert sort_val == 0.0
+
+
+def test_format_gpwr_column_no_primary_has_ad_sort_by_ad():
+    deck_colors = {"All Decks": {constants.DATA_FIELD_GPWR: 50.5}}
+    display, sort_val = format_gpwr_column(deck_colors, "WU")
+    assert "AD: 50.5" in display
+    assert sort_val == 50.5
+
+
+def test_format_gpwr_column_zero_excluded():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GPWR: 0.0},
+        "WU": {constants.DATA_FIELD_GPWR: 0.0},
+    }
+    display, sort_val = format_gpwr_column(deck_colors, "All Decks")
     assert sort_val == 0.0
     assert display == "-"

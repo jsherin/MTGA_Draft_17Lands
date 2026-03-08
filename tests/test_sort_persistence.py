@@ -11,6 +11,7 @@ Covers:
   - force_reverse parameter
   - sort arrow heading indicators
   - graceful no-op when saved column no longer exists
+  - GIHWR/GPWR column: filter-first then AD ordering when _gihwr_filter is set
 """
 
 import pytest
@@ -47,6 +48,63 @@ def make_tree(root, columns=("name", "gihwr", "value"), view_id=None, config=Non
 
 def get_col_values(tree, col_index=0):
     return [tree.item(k)["values"][col_index] for k in tree.get_children()]
+
+
+def get_row_order_names(tree):
+    """Return card names in current display order (for sort-order assertions)."""
+    return [tree.item(k)["values"][0] for k in tree.get_children()]
+
+
+# ---------------------------------------------------------------------------
+# GIHWR/GPWR filter-first then AD sort order (ModernTreeview _handle_sort key)
+# ---------------------------------------------------------------------------
+
+
+class TestGihwrGpwrFilterThenAdSortOrder:
+    """When _gihwr_filter is set, sort uses (1, filter_val) then (0, ad_val) then (0, 0)."""
+
+    def test_gihwr_sort_descending_filter_then_ad_then_empty(self, root):
+        tree = make_tree(root, columns=("name", "gihwr", "value"))
+        tree._gihwr_filter = "WU"
+        tree.insert("", "end", values=("AD only", "AD: 53.0", "1"))
+        tree.insert("", "end", values=("Filter row", "WU: 58.0  AD: 55.0", "2"))
+        tree.insert("", "end", values=("No data", "-", "3"))
+
+        with patch(WRITE_CFG):
+            tree._handle_sort("gihwr", force_reverse=True)
+
+        names = get_row_order_names(tree)
+        assert names[0] == "Filter row"
+        assert names[1] == "AD only"
+        assert names[2] == "No data"
+
+    def test_gihwr_sort_ascending_empty_then_ad_then_filter(self, root):
+        tree = make_tree(root, columns=("name", "gihwr", "value"))
+        tree._gihwr_filter = "WU"
+        tree.insert("", "end", values=("AD only", "AD: 53.0", "1"))
+        tree.insert("", "end", values=("Filter row", "WU: 58.0", "2"))
+        tree.insert("", "end", values=("No data", "-", "3"))
+
+        with patch(WRITE_CFG):
+            tree._handle_sort("gihwr", force_reverse=False)
+
+        names = get_row_order_names(tree)
+        assert names[0] == "No data"
+        assert names[1] == "AD only"
+        assert names[2] == "Filter row"
+
+    def test_gpwr_sort_uses_same_filter_key_logic(self, root):
+        tree = make_tree(root, columns=("name", "gpwr", "value"))
+        tree._gihwr_filter = "UB"
+        tree.insert("", "end", values=("AD only", "AD: 51.0", "1"))
+        tree.insert("", "end", values=("UB row", "UB: 55.0", "2"))
+
+        with patch(WRITE_CFG):
+            tree._handle_sort("gpwr", force_reverse=True)
+
+        names = get_row_order_names(tree)
+        assert names[0] == "UB row"
+        assert names[1] == "AD only"
 
 
 # ---------------------------------------------------------------------------

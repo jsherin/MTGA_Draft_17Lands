@@ -6,6 +6,7 @@ Main UI Orchestrator. Updated for Async Background Updates.
 import tkinter
 from tkinter import ttk, filedialog, messagebox
 import os
+import re
 import sys
 import queue
 from typing import Dict, List, Any, Optional
@@ -623,6 +624,33 @@ class DraftApp:
                 scores[c] += v
         return scores
 
+    def _repopulate_dashboard_only(self):
+        """Lightweight refresh: repopulate pack/missing tables and overlay only (no advisor, no other panels). Used when column config changes."""
+        if not self._initialized or self._rebuilding_ui:
+            return
+        pack_cards = self.orchestrator.scanner.retrieve_current_pack_cards()
+        missing_cards = self.orchestrator.scanner.retrieve_current_missing_cards()
+        taken_cards = self.orchestrator.scanner.retrieve_taken_cards()
+        metrics = self.orchestrator.scanner.retrieve_set_metrics()
+        tier_data = self.orchestrator.scanner.retrieve_tier_data()
+        pk, pi = self.orchestrator.scanner.retrieve_current_pack_and_pick()
+        colors = filter_options(
+            taken_cards,
+            self.configuration.settings.deck_filter,
+            metrics,
+            self.configuration,
+        )
+        self.dashboard.update_pack_data(
+            pack_cards, colors, metrics, tier_data, pi, source_type="pack", recommendations=[]
+        )
+        self.dashboard.update_pack_data(
+            missing_cards, colors, metrics, tier_data, pi, source_type="missing"
+        )
+        if self.overlay_window:
+            self.overlay_window.update_data(
+                pack_cards, colors, metrics, tier_data, pi, []
+            )
+
     def _update_loop(self):
         """UI Poll Loop: Checks the orchestrator's queue for updates."""
         if not self.root.winfo_exists():
@@ -869,10 +897,22 @@ class DraftApp:
             menu = self.om_filter["menu"]
             menu.delete(0, "end")
 
-            for label in rate_map.keys():
-                menu.add_command(
-                    label=label, command=lambda v=label: self.vars["deck_filter"].set(v)
-                )
+            # Build key -> label so we can add menu items in WUBRG order
+            key_to_label = {key: label for label, key in rate_map.items()}
+            for key in constants.DECK_FILTERS:
+                if key in key_to_label:
+                    label = key_to_label[key]
+                    menu.add_command(
+                        label=label,
+                        command=lambda v=label: self.vars["deck_filter"].set(v),
+                    )
+            # Any keys from rate_map not in DECK_FILTERS (e.g. three-color) append at end
+            for label, key in rate_map.items():
+                if key not in constants.DECK_FILTERS:
+                    menu.add_command(
+                        label=label,
+                        command=lambda v=label: self.vars["deck_filter"].set(v),
+                    )
 
             current_setting = self.configuration.settings.deck_filter
             if current_setting not in rate_map.values():
