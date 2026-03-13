@@ -1,14 +1,56 @@
 import os
+import sys
 import getpass
 
-APPLICATION_VERSION = 4.05
+
+def get_base_dir():
+    if getattr(sys, "frozen", False):
+        if sys.platform == "darwin":
+            path = os.path.expanduser("~/Library/Application Support/MTGA_Draft_Tool")
+        elif sys.platform == "linux":
+            path = os.path.expanduser("~/.config/MTGA_Draft_Tool")
+        else:
+            path = os.path.dirname(sys.executable)
+    else:
+        path = os.getcwd()
+
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+        except Exception:
+            pass
+    return path
+
+
+def get_resource_dir():
+    if getattr(sys, "frozen", False):
+        return getattr(sys, "_MEIPASS", os.getcwd())
+    return os.getcwd()
+
+
+BASE_DIR = get_base_dir()
+RESOURCE_DIR = get_resource_dir()
+
+APPLICATION_VERSION = 4.07
 OLD_APPLICATION_VERSION = "3.2"
-PREVIOUS_APPLICATION_VERSION = "0404"
+PREVIOUS_APPLICATION_VERSION = "0405"
 
 FONT_SANS_SERIF = "Arial"
 FONT_MONO_SPACE = "Courier"
 
-BASIC_LANDS = ["Island", "Mountain", "Swamp", "Plains", "Forest"]
+BASIC_LANDS = [
+    "Island",
+    "Mountain",
+    "Swamp",
+    "Plains",
+    "Forest",
+    "Snow-Covered Island",
+    "Snow-Covered Mountain",
+    "Snow-Covered Swamp",
+    "Snow-Covered Plains",
+    "Snow-Covered Forest",
+    "Wastes",
+]
 
 CARD_COLOR_SYMBOL_WHITE = "W"
 CARD_COLOR_SYMBOL_BLACK = "B"
@@ -175,7 +217,7 @@ DECK_FILTER_DEFAULT = FILTER_OPTION_AUTO
 UI_SIZE_DEFAULT = "100%"
 
 DRAFT_LOG_PREFIX = "DraftLog_"
-DRAFT_LOG_FOLDER = os.path.join(os.getcwd(), "Logs")
+DRAFT_LOG_FOLDER = os.path.join(BASE_DIR, "Logs")
 
 DRAFT_DETECTION_CATCH_ALL = ["Draft", "draft"]
 
@@ -341,7 +383,7 @@ LOCAL_CARDS_KEY_CASTING_COST = "oldschoolmanatext"
 LOCAL_CARDS_KEY_RARITY = "rarity"
 LOCAL_CARDS_KEY_PRIMARY = "isprimarycard"
 
-SETS_FOLDER = os.path.join(os.getcwd(), "Sets")
+SETS_FOLDER = os.path.join(BASE_DIR, "Sets")
 SET_FILE_SUFFIX = "Data.json"
 
 SCRYFALL_REQUEST_BACKOFF_DELAY_SECONDS = 5
@@ -455,7 +497,7 @@ SUPPORTED_SET_TYPES = [
 
 TABLE_STYLE = "Treeview"
 
-TEMP_FOLDER = os.path.join(os.getcwd(), "Temp")
+TEMP_FOLDER = os.path.join(BASE_DIR, "Temp")
 TEMP_LOCALIZATION_FILE = os.path.join(TEMP_FOLDER, "temp_localization.json")
 TEMP_CARD_DATA_FILE = os.path.join(TEMP_FOLDER, "temp_card_data.json")
 
@@ -777,6 +819,10 @@ CARD_RARITY_DICT = {
 }
 
 UI_SIZE_DICT = {
+    "40%": 0.4,
+    "50%": 0.5,
+    "60%": 0.6,
+    "70%": 0.7,
     "80%": 0.8,
     "90%": 0.9,
     "100%": 1.0,
@@ -799,7 +845,7 @@ UI_SIZE_DICT = {
 
 PACK_PARSER_URL = "https://us-central1-mtgalimited.cloudfunctions.net/pack_parser"
 
-SCREENSHOT_FOLDER = os.path.join(os.getcwd(), "Screenshots")
+SCREENSHOT_FOLDER = os.path.join(BASE_DIR, "Screenshots")
 SCREENSHOT_PREFIX = "p1p1_screenshot_"
 
 PICK_TWO_EVENT_STRING = "PickTwo"

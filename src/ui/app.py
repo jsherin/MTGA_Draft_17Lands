@@ -3,15 +3,19 @@ src/ui/app.py
 Main UI Orchestrator. Updated for Async Background Updates.
 """
 
+import queue
+import logging
+from typing import Dict, List, Any, Optional
+
+from src import constants
+
+logger = logging.getLogger(__name__)
 import tkinter
 from tkinter import ttk, filedialog, messagebox
 import os
 import re
 import sys
-import queue
-from typing import Dict, List, Any, Optional
 
-from src import constants
 from src.configuration import write_configuration
 from src.card_logic import filter_options, get_deck_metrics
 from src.utils import retrieve_local_set_list
@@ -58,6 +62,7 @@ class DraftApp:
         self.detected_set_code = ""
         self.active_event_set = ""
         self.active_event_type = ""
+        self.current_draft_id = ""
         self._notified_missing_sets = set()
         self._mana_cache: Optional[ManaImageCache] = None
         self._deck_filter_menu_images: List[Any] = []  # keep refs so images don't get GC'd
@@ -122,7 +127,6 @@ class DraftApp:
         try:
             self.vars["status_text"].set("Syncing with Arena...")
 
-            # 1. APPLY GEOMETRY
             try:
                 geom = self.configuration.settings.main_window_geometry
                 if geom and "x" in geom and not geom.startswith("1x1"):
@@ -132,9 +136,29 @@ class DraftApp:
 
                 self.root.update_idletasks()
 
-                sash_pos = self.configuration.settings.paned_window_sash
-                if sash_pos > 50:
-                    self.splitter.sashpos(0, sash_pos)
+                # Defer setting sash positions until the OS window manager has fully applied geometry.
+                # If applied too early, the PanedWindow clamps the sash to its un-rendered height.
+                def apply_sashes():
+                    try:
+                        sash_pos = self.configuration.settings.paned_window_sash
+                        if sash_pos > 50 and self.tabs_visible:
+                            self.splitter.sashpos(0, sash_pos)
+
+                        dash_sash = getattr(
+                            self.configuration.settings, "dashboard_sash", 800
+                        )
+                        if dash_sash > 50 and hasattr(self.dashboard, "h_splitter"):
+                            curr_w = self.dashboard.winfo_width()
+                            if curr_w > 200:
+                                safe_sash = min(dash_sash, curr_w - 280)
+                                if safe_sash > 50:
+                                    self.dashboard.h_splitter.sashpos(0, safe_sash)
+                    except Exception:
+                        pass
+
+                self.root.after(100, apply_sashes)
+                self.root.after(500, apply_sashes)
+
             except Exception as e:
                 import logging
 
@@ -232,8 +256,18 @@ class DraftApp:
                 self.configuration.settings.main_window_geometry = self.root.geometry()
 
             # Save the current divider position
+
             try:
-                self.configuration.settings.paned_window_sash = self.splitter.sashpos(0)
+                if self.tabs_visible:
+                    self.configuration.settings.paned_window_sash = (
+                        self.splitter.sashpos(0)
+                    )
+
+                if hasattr(self, "dashboard") and hasattr(self.dashboard, "h_splitter"):
+                    if self.dashboard.sidebar_visible:
+                        self.configuration.settings.dashboard_sash = (
+                            self.dashboard.h_splitter.sashpos(0)
+                        )
             except:
                 pass
 
@@ -252,11 +286,10 @@ class DraftApp:
         self.vars["deck_filter"] = tkinter.StringVar(
             value=self.configuration.settings.deck_filter
         )
-        self.vars["set_label"] = tkinter.StringVar(value="NO SET")
+        self.vars["set_label"] = tkinter.StringVar(value="")
         self.vars["selected_event"] = tkinter.StringVar(value="")
         self.vars["selected_group"] = tkinter.StringVar(value="")
         self.vars["status_text"] = tkinter.StringVar(value="Ready")
-        self.vars["event_info"] = tkinter.StringVar(value="Scan logs...")
         self.vars["deck_filter"].trace_add(
             "write", lambda *a: self._on_filter_ui_change()
         )
@@ -274,67 +307,68 @@ class DraftApp:
         self.main_container.pack(fill="both", expand=True)
 
         # --- HEADER CONTAINER ---
-        header_frame = ttk.Frame(self.main_container, style="Card.TFrame", padding=5)
+        header_frame = ttk.Frame(self.main_container, padding=5)
         header_frame.pack(fill="x", pady=(0, 10))
 
         # ROW 1: Status & Overlay
-        row1 = ttk.Frame(header_frame, style="Card.TFrame")
+        row1 = ttk.Frame(header_frame)
         row1.pack(fill="x", pady=(0, 5))
 
-        self.status_dot = ttk.Label(row1, text="●", bootstyle="secondary")
+        self.status_dot = ttk.Label(
+            row1, text="●", font=(Theme.FONT_FAMILY, 16), bootstyle="secondary"
+        )
         self.status_dot.pack(side="left", padx=5)
 
-        ttk.Label(
+        self.lbl_status = ttk.Label(
             row1,
-            textvariable=self.vars["event_info"],
-            font=(Theme.FONT_FAMILY, 9, "bold"),
-        ).pack(side="left")
-
-        ttk.Label(row1, text=" | ").pack(side="left")
-        ttk.Label(row1, textvariable=self.vars["status_text"]).pack(side="left")
+            textvariable=self.vars["status_text"],
+            font=(Theme.FONT_FAMILY, 11, "bold"),
+            bootstyle="primary",
+        )
+        self.lbl_status.pack(side="left", padx=(0, 10))
 
         ttk.Button(
             row1,
             text="Mini Mode",
             bootstyle="info-outline",
             command=self._enable_overlay,
-            width=12,
+            width=-10,
         ).pack(side="right", padx=5)
 
-        self.btn_toggle_tabs = ttk.Button(
+        self.lbl_set_code = ttk.Label(
             row1,
-            text="▼ Hide Tabs",
-            bootstyle="secondary-outline",
-            command=self._toggle_tabs,
-            width=10,
+            textvariable=self.vars["set_label"],
+            font=(Theme.FONT_FAMILY, 10, "bold"),
+            bootstyle="primary",
+            padding=(5, 2),
         )
-        self.btn_toggle_tabs.pack(side="right", padx=5)
-
-        self.sidebar_visible = self.configuration.settings.collapsible_states.get(
-            "sidebar_panel", True
-        )
-        self.btn_toggle_sidebar = ttk.Button(
-            row1,
-            text="◀ Hide Sidebar" if self.sidebar_visible else "▶ Show Sidebar",
-            bootstyle="secondary-outline",
-            command=self._toggle_sidebar,
-            width=13,
-        )
-        self.btn_toggle_sidebar.pack(side="right", padx=5)
+        self.lbl_set_code.pack(side="right", padx=10)
 
         # ROW 2: Controls
-        row2 = ttk.Frame(header_frame, style="Card.TFrame")
+        row2 = ttk.Frame(header_frame)
         row2.pack(fill="x")
 
         # Controls (Left)
         self.btn_reload = ttk.Button(
-            row2, text="Reload", command=self._force_reload, width=7
+            row2,
+            text="Reload",
+            command=self._force_reload,
+            width=7,
+            bootstyle="secondary-outline",
         )
         self.btn_reload.pack(side="left", padx=2)
 
         self.btn_p1p1 = ttk.Button(
-            row2, text="P1P1", command=lambda: self._manual_refresh(True), width=6
+            row2,
+            text="SCAN P1P1",
+            command=lambda: self._manual_refresh(True),
+            width=-10,
+            bootstyle="success",
         )
+
+        # Container for right-side controls (hidden when no draft is active)
+        self.dataset_controls_frame = ttk.Frame(row2)
+        self.dataset_controls_frame.pack(side="right")
 
         # Filter (Right) — larger font for readability
         filter_font_size = max(Theme.FONT_SIZE_MAIN + 1, 11)
@@ -345,47 +379,86 @@ class DraftApp:
         except Exception:
             pass
         self.om_filter = ttk.OptionMenu(
-            row2, self.vars["deck_filter"], "", style="Filter.TMenubutton"
+            self.dataset_controls_frame,
+            self.vars["deck_filter"],
+            "",
+            style="Filter.TMenubutton",
         )
         self.om_filter.pack(side="right", padx=2)
 
+        self.lbl_auto_detect = ttk.Label(
+            self.dataset_controls_frame,
+            text="",
+            font=(Theme.FONT_FAMILY, 9, "italic"),
+            bootstyle="info",
+        )
+        self.lbl_auto_detect.pack(side="right", padx=8)
+
         # Group (Right)
         self.om_group = ttk.OptionMenu(
-            row2, self.vars["selected_group"], "", style="TMenubutton"
+            self.dataset_controls_frame,
+            self.vars["selected_group"],
+            "",
+            style="TMenubutton",
         )
         self.om_group.pack(side="right", padx=2)
 
         # Event (Right)
         self.om_event = ttk.OptionMenu(
-            row2, self.vars["selected_event"], "", style="TMenubutton"
+            self.dataset_controls_frame,
+            self.vars["selected_event"],
+            "",
+            style="TMenubutton",
         )
         self.om_event.pack(side="right", padx=2)
-
-        # Set Label (Right)
-        self.lbl_set_code = ttk.Label(
-            row2,
-            textvariable=self.vars["set_label"],
-            font=(Theme.FONT_FAMILY, 9, "bold"),
-            bootstyle="primary",
-            padding=(5, 2),
-        )
-        self.lbl_set_code.pack(side="right", padx=5)
 
         # --- BODY ---
         self.splitter = ttk.PanedWindow(self.main_container, orient=tkinter.VERTICAL)
         self.splitter.pack(fill="both", expand=True)
 
+        self.top_pane = ttk.Frame(self.splitter)
+        self.splitter.add(self.top_pane, weight=4)
+
         self.dashboard = DashboardFrame(
-            self.splitter,
+            self.top_pane,
             self.configuration,
             self._on_card_select,
             self._refresh_ui_data,
             on_column_change=self._repopulate_dashboard_only,
+            on_advisor_click=self._show_tooltip_from_advisor,
+            on_context_menu=self._on_card_context_menu,
         )
-        self.splitter.add(self.dashboard, weight=4)
 
-        self.notebook = ttk.Notebook(self.splitter)
-        self.splitter.add(self.notebook, weight=2)
+        self.bottom_pane = ttk.Frame(self.splitter)
+        self.splitter.add(self.bottom_pane, weight=2)
+
+        self.tab_controls = ttk.Frame(self.top_pane, padding=(10, 5, 10, 5))
+        self.tab_controls.pack(side="bottom", fill="x")
+
+        self.footer_separator = ttk.Separator(self.top_pane, orient="horizontal")
+        self.footer_separator.pack(side="bottom", fill="x")
+
+        self.dashboard.pack(side="top", fill="both", expand=True)
+
+        self.btn_toggle_tabs = ttk.Button(
+            self.tab_controls,
+            text="▼ Hide Tabs",
+            bootstyle="secondary-outline",
+            command=self._toggle_tabs,
+            cursor="hand2",
+        )
+        self.btn_toggle_tabs.pack(side="right", padx=5)
+
+        self.lbl_session_info = ttk.Label(
+            self.tab_controls,
+            font=(Theme.FONT_FAMILY, 9),
+            bootstyle="secondary",
+            anchor="w",
+        )
+        self.lbl_session_info.pack(side="left", fill="x", expand=True, padx=5)
+
+        self.notebook = ttk.Notebook(self.bottom_pane)
+        self.notebook.pack(fill="both", expand=True)
 
         self.panel_taken = TakenCardsPanel(
             self.notebook, self.orchestrator.scanner, self.configuration
@@ -412,26 +485,30 @@ class DraftApp:
         self.notebook.add(self.panel_compare, text=" Comparisons ")
         self.notebook.add(self.panel_tiers, text=" Tier Lists ")
 
+    def update_session_info(self, event_name, draft_id, start_time):
+        """Updates the muted technical metadata in the footer."""
+        if not hasattr(self, "lbl_session_info"):
+            return
+
+        parts = []
+        if event_name:
+            parts.append(str(event_name))
+        if draft_id:
+            parts.append(str(draft_id))
+        if start_time:
+            parts.append(str(start_time))
+
+        self.lbl_session_info.config(text=" | ".join(parts))
+
     def _toggle_tabs(self):
         if self.tabs_visible:
-            self.splitter.forget(self.notebook)
+            self.splitter.forget(self.bottom_pane)
             self.btn_toggle_tabs.config(text="▲ Show Tabs")
             self.tabs_visible = False
         else:
-            self.splitter.add(self.notebook, weight=2)
+            self.splitter.add(self.bottom_pane, weight=2)
             self.btn_toggle_tabs.config(text="▼ Hide Tabs")
             self.tabs_visible = True
-
-    def _toggle_sidebar(self):
-        self.sidebar_visible = not self.sidebar_visible
-        self.dashboard.set_sidebar_visible(self.sidebar_visible)
-        self.btn_toggle_sidebar.config(
-            text="◀ Hide Sidebar" if self.sidebar_visible else "▶ Show Sidebar"
-        )
-        self.configuration.settings.collapsible_states["sidebar_panel"] = (
-            self.sidebar_visible
-        )
-        write_configuration(self.configuration)
 
     def _ensure_tabs_visible(self):
         if not self.tabs_visible:
@@ -533,7 +610,13 @@ class DraftApp:
             taken_cards = self.orchestrator.scanner.retrieve_taken_cards()
             pack_cards = self.orchestrator.scanner.retrieve_current_pack_cards()
             missing_cards = self.orchestrator.scanner.retrieve_current_missing_cards()
+            current_picked_cards = (
+                self.orchestrator.scanner.retrieve_current_picked_cards()
+            )
             history = self.orchestrator.scanner.retrieve_draft_history()
+            draft_id = self.orchestrator.scanner.current_draft_id
+            start_time = self.orchestrator.scanner.draft_start_time
+            event_string = self.orchestrator.scanner.event_string
         finally:
             self.orchestrator.scanner.lock.release()
 
@@ -557,8 +640,14 @@ class DraftApp:
                 scores[c] += v
 
         # 3. DRAW BASIC UI ELEMENTS
-        self.vars["event_info"].set(f"{es} {et}" if es else "Waiting for draft...")
-        self.vars["status_text"].set(f"Pack {pk} Pick {pi}" if pk > 0 else "Idle")
+        if pk > 0:
+            self.vars["status_text"].set(f"Pack {pk} Pick {pi}")
+            if hasattr(self, "lbl_status"):
+                self.lbl_status.configure(bootstyle="success")
+        else:
+            self.vars["status_text"].set("Waiting for draft...")
+            if hasattr(self, "lbl_status"):
+                self.lbl_status.configure(bootstyle="secondary")
 
         if self.configuration.settings.p1p1_ocr_enabled and pk <= 1 and pi <= 1:
             self.btn_p1p1.pack(side="left", padx=2, after=self.btn_reload)
@@ -573,10 +662,55 @@ class DraftApp:
             self.configuration,
         )
 
+        # Update Auto-Detect Label
+        if hasattr(self, "lbl_auto_detect"):
+            if (
+                self.configuration.settings.deck_filter == constants.FILTER_OPTION_AUTO
+                and self.configuration.settings.auto_highest_enabled
+            ):
+                active_color = colors[0] if colors else "All Decks"
+                if active_color == "All Decks":
+                    self.lbl_auto_detect.config(text="(Auto: Detecting...)")
+                else:
+                    color_ratings = (
+                        self.orchestrator.scanner.set_data.get_color_ratings()
+                    )
+                    wr_str = (
+                        f" {color_ratings[active_color]}%"
+                        if active_color in color_ratings
+                        else ""
+                    )
+
+                    display_name = active_color
+                    if (
+                        self.configuration.settings.filter_format
+                        == constants.DECK_FILTER_FORMAT_NAMES
+                        and active_color in constants.COLOR_NAMES_DICT
+                    ):
+                        display_name = constants.COLOR_NAMES_DICT[active_color]
+
+                    self.lbl_auto_detect.config(text=f"(Auto: {display_name}{wr_str})")
+            else:
+                self.lbl_auto_detect.config(text="")
+
+        self.dashboard._current_event_set = es
+        self.dashboard._current_event_type = et
+        self.dashboard._current_pack = pk
+        self.dashboard._current_pick = pi
+        self.dashboard.on_p1p1_scan = lambda: self._manual_refresh(True)
+
+        self.update_session_info(event_string, draft_id, start_time)
         self.dashboard.update_recommendations(recommendations)
         self.dashboard.update_signals(scores)
         self.dashboard.update_pack_data(
-            pack_cards, colors, metrics, tier_data, pi, "pack", recommendations
+            pack_cards,
+            colors,
+            metrics,
+            tier_data,
+            pi,
+            "pack",
+            recommendations,
+            current_picked_cards,
         )
         self.dashboard.update_pack_data(
             missing_cards, colors, metrics, tier_data, pi, "missing"
@@ -588,7 +722,13 @@ class DraftApp:
 
         if self.overlay_window:
             self.overlay_window.update_data(
-                pack_cards, colors, metrics, tier_data, pi, recommendations
+                pack_cards,
+                colors,
+                metrics,
+                tier_data,
+                pi,
+                recommendations,
+                current_picked_cards,
             )
 
         # 5. DEFENSIVE TAB REFRESH (Fixed for Pytest)
@@ -715,6 +855,15 @@ class DraftApp:
 
             event_transitioned = False
             current_draft_id = self.orchestrator.scanner.current_draft_id
+
+            if (
+                current_draft_id
+                and not self.current_draft_id
+                and current_set == self.active_event_set
+                and current_event_type == self.active_event_type
+            ):
+                self.current_draft_id = current_draft_id
+
             if (
                 current_set != self.active_event_set
                 or current_event_type != self.active_event_type
@@ -729,7 +878,8 @@ class DraftApp:
                 self.orchestrator.new_event_detected = False
 
             if not current_set:
-                self.vars["set_label"].set("NO SET")
+                self.dataset_controls_frame.pack_forget()
+                self.vars["set_label"].set("")
                 self._set_dropdown_options(
                     self.om_event, self.vars["selected_event"], []
                 )
@@ -737,6 +887,8 @@ class DraftApp:
                     self.om_group, self.vars["selected_group"], []
                 )
                 return
+            else:
+                self.dataset_controls_frame.pack(side="right")
 
             # Map the raw Set Code to the Human-Readable Set Name
             full_set_name = current_set
@@ -750,11 +902,7 @@ class DraftApp:
                         break
 
             self.detected_set_code = current_set
-            display_name = (
-                full_set_name
-                if len(full_set_name) <= 25
-                else full_set_name[:22] + "..."
-            )
+            display_name = full_set_name
 
             all_files, _ = retrieve_local_set_list()
             self.current_set_data_map = {}
@@ -779,7 +927,8 @@ class DraftApp:
 
             # If no data is found for the event, clear dropdowns and alert the user
             if not available_events:
-                self.vars["set_label"].set(f"SET: {display_name} (No Data)")
+                self.dataset_controls_frame.pack(side="right")
+                self.vars["set_label"].set(f"{display_name} (No Data)")
                 self._set_dropdown_options(
                     self.om_event, self.vars["selected_event"], []
                 )
@@ -788,7 +937,7 @@ class DraftApp:
                 )
                 return
 
-            self.vars["set_label"].set(f"SET: {display_name}")
+            self.vars["set_label"].set(display_name)
             self._set_dropdown_options(
                 self.om_event, self.vars["selected_event"], available_events
             )
@@ -935,6 +1084,11 @@ class DraftApp:
             self.btn_p1p1.config(state="disabled")
             if self.overlay_window and hasattr(self.overlay_window, "btn_scan"):
                 self.overlay_window.btn_scan.config(state="disabled")
+            if (
+                hasattr(self.dashboard, "btn_dashboard_scan")
+                and self.dashboard.btn_dashboard_scan.winfo_exists()
+            ):
+                self.dashboard.btn_dashboard_scan.config(state="disabled")
 
             def update_btn_text(msg):
                 def _update():
@@ -946,20 +1100,45 @@ class DraftApp:
                         and self.overlay_window.btn_scan.winfo_exists()
                     ):
                         self.overlay_window.btn_scan.config(text=msg)
+                    if (
+                        hasattr(self.dashboard, "btn_dashboard_scan")
+                        and self.dashboard.btn_dashboard_scan.winfo_exists()
+                    ):
+                        self.dashboard.btn_dashboard_scan.config(text=msg)
 
                 try:
                     self.root.after(0, _update)
                 except RuntimeError:
                     pass
 
+            def restore_windows():
+                if self.overlay_window:
+                    self.overlay_window.deiconify()
+                else:
+                    self.root.deiconify()
+
             def _scan_thread():
+                import time
+
+                time.sleep(
+                    0.2
+                )  # Allow OS compositor to fully clear the app from screen
                 data_found = self.orchestrator.scanner.run_ocr_workflow(
-                    save_img, status_callback=update_btn_text
+                    save_img,
+                    status_callback=update_btn_text,
+                    capture_callback=lambda: self.root.after(0, restore_windows),
                 )
                 try:
                     self.root.after(0, lambda: self._on_scan_complete(data_found))
                 except RuntimeError:
                     pass
+
+            # Instantly hide UI to prevent blocking cards
+            if self.overlay_window:
+                self.overlay_window.withdraw()
+            else:
+                self.root.withdraw()
+            self.root.update()
 
             import threading
 
@@ -970,13 +1149,20 @@ class DraftApp:
 
     def _on_scan_complete(self, data_found):
         if self.btn_p1p1.winfo_exists():
-            self.btn_p1p1.config(text="P1P1", state="normal")
+            self.btn_p1p1.config(text="SCAN P1P1", state="normal")
         if (
             self.overlay_window
             and hasattr(self.overlay_window, "btn_scan")
             and self.overlay_window.btn_scan.winfo_exists()
         ):
             self.overlay_window.btn_scan.config(text="SCAN P1P1", state="normal")
+        if (
+            hasattr(self.dashboard, "btn_dashboard_scan")
+            and self.dashboard.btn_dashboard_scan.winfo_exists()
+        ):
+            self.dashboard.btn_dashboard_scan.config(
+                text="SCAN P1P1 (Take Screenshot)", state="normal"
+            )
 
         if data_found:
             self.orchestrator.request_math_update()
@@ -1000,6 +1186,14 @@ class DraftApp:
             )
         except ValueError:
             return
+        self._show_tooltip(card_name, table, data_list)
+
+    def _show_tooltip_from_advisor(self, card_name, widget):
+        self._show_tooltip(
+            card_name, widget, self.current_pack_data + self.current_missing_data
+        )
+
+    def _show_tooltip(self, card_name, widget, data_list):
         found = next(
             (c for c in data_list if c[constants.DATA_FIELD_NAME] == card_name), None
         )
@@ -1008,8 +1202,75 @@ class DraftApp:
                 self.configuration.settings.ui_size, 1.0
             )
             CardToolTip(
-                table, found, self.configuration.features.images_enabled, current_scale
+                widget, found, self.configuration.features.images_enabled, current_scale
             )
+
+    def _on_card_context_menu(self, event, table, source_type):
+        """Spawns a right-click context menu on a specific card in the data tables."""
+        region = table.identify_region(event.x, event.y)
+        if region == "heading":
+            return
+
+        selection = table.identify_row(event.y)
+        if not selection:
+            return
+
+        table.selection_set(selection)
+
+        data_list = (
+            self.current_pack_data
+            if source_type == "pack"
+            else self.current_missing_data
+        )
+        item_vals = table.item(selection)["values"]
+
+        try:
+            name_idx = table.active_fields.index("name")
+            raw_name = str(item_vals[name_idx])
+            card_name = (
+                raw_name.replace("⭐ ", "").replace("[+] ", "").replace("*", "").strip()
+            )
+        except ValueError:
+            return
+
+        found = next(
+            (c for c in data_list if c[constants.DATA_FIELD_NAME] == card_name), None
+        )
+        if not found:
+            return
+
+        menu = tkinter.Menu(self.root, tearoff=0)
+        menu.add_command(
+            label=f"🔍 Compare '{card_name}'",
+            command=lambda: self._send_to_compare(found),
+        )
+        menu.add_command(
+            label="📋 Copy Name",
+            command=lambda: self._copy_text_to_clipboard(card_name),
+        )
+        menu.add_separator()
+        menu.add_command(
+            label="🌐 View on Scryfall", command=lambda: self._open_scryfall(card_name)
+        )
+
+        menu.post(event.x_root, event.y_root)
+
+    def _send_to_compare(self, card_data):
+        if hasattr(self, "panel_compare"):
+            self.panel_compare.add_external_card(card_data)
+            self.notebook.select(self.panel_compare)
+            self._ensure_tabs_visible()
+
+    def _copy_text_to_clipboard(self, text):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+
+    def _open_scryfall(self, card_name):
+        import urllib.parse
+        from src.utils import open_file
+
+        url = f"https://scryfall.com/search?q={urllib.parse.quote(card_name)}"
+        open_file(url)
 
     def notify_app_update(self, new_version):
         self.root.title(
@@ -1120,4 +1381,15 @@ class DraftApp:
             self.overlay_window.destroy()
             self.overlay_window = None
         self.root.deiconify()
+        current_scale = constants.UI_SIZE_DICT.get(
+            self.configuration.settings.ui_size, 1.0
+        )
+        Theme.apply(
+            self.root,
+            palette=self.configuration.settings.theme,
+            engine=getattr(self.configuration.settings, "theme_base", "clam"),
+            custom_path=self.configuration.settings.theme_custom_path,
+            scale=current_scale,
+        )
+
         self._refresh_ui_data()

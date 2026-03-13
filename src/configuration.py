@@ -9,6 +9,7 @@ from pydantic import BaseModel, field_validator, Field
 from typing import List, Dict, Tuple
 from src import constants
 from src.logger import create_logger
+from src.constants import BASE_DIR
 
 logger = create_logger()
 CONFIG_LOCK = threading.RLock()
@@ -26,13 +27,16 @@ def get_config_path():
 
     config_dir = os.path.join(base_path, app_name)
     if not os.path.exists(config_dir):
-        os.makedirs(config_dir)
+        try:
+            os.makedirs(config_dir)
+        except Exception:
+            pass
 
     return os.path.join(config_dir, "config.json")
 
 
 # Use local config if it exists (Development mode), otherwise use User Data path
-LOCAL_CONFIG = os.path.join(os.getcwd(), "config.json")
+LOCAL_CONFIG = os.path.join(BASE_DIR, "config.json")
 if os.path.exists(LOCAL_CONFIG):
     CONFIG_FILE = LOCAL_CONFIG
     logger.info(f"Using local configuration file: {CONFIG_FILE}")
@@ -57,7 +61,8 @@ class Settings(BaseModel):
     overlay_geometry: str = "300x600+50+50"
 
     main_window_geometry: str = "600x1080"
-    paned_window_sash: int = 550
+    paned_window_sash: int = 500
+    dashboard_sash: int = 800
 
     collapsible_states: Dict[str, bool] = Field(default_factory=dict)
 

@@ -139,9 +139,10 @@ class TakenCardsPanel(ttk.Frame):
         )
         self.btn_view.pack(side="left", padx=5)
 
-        ttk.Button(btn_frame, text="Export Pool", command=self._copy_to_clipboard).pack(
-            side="left", padx=5
+        self.btn_export = ttk.Button(
+            btn_frame, text="Export Pool", command=self._copy_to_clipboard
         )
+        self.btn_export.pack(side="left", padx=5)
 
         # --- Content Container ---
         self.content_area = ttk.Frame(self)
@@ -347,6 +348,12 @@ class TakenCardsPanel(ttk.Frame):
     def _copy_to_clipboard(self):
         self.clipboard_clear()
         self.clipboard_append(copy_deck(self.current_display_list, None))
+
+        self.btn_export.config(text="Copied! ✔", bootstyle="success")
+        self.after(
+            2000,
+            lambda: self.btn_export.config(text="Export Pool", bootstyle="primary"),
+        )
 
     def _on_selection(self, event):
         sel = self.table.selection()

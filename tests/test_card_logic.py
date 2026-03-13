@@ -14,10 +14,11 @@ from src.card_logic import (
     format_gihwr_column,
     format_gpwr_column,
 )
+from src.constants import BASE_DIR
 
 # 17Lands OTJ data from 2024-4-16 to 2024-5-3
 OTJ_PREMIER_SNAPSHOT = os.path.join(
-    os.getcwd(), "tests", "data", "OTJ_PremierDraft_Data_2024_5_3.json"
+    BASE_DIR, "tests", "data", "OTJ_PremierDraft_Data_2024_5_3.json"
 )
 
 TEST_TIER_LIST = {

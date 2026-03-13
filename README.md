@@ -8,7 +8,7 @@ Magic: The Gathering Arena draft tool that utilizes 17Lands data.
 
 ## Table of Contents
 
-- [MTGA\_Draft\_17Lands](#mtga_draft_17lands)
+- [MTGA_Draft_17Lands](#mtga_draft_17lands)
   - [Table of Contents](#table-of-contents)
   - [Run Steps: Windows Executable (Windows Only)](#run-steps-windows-executable-windows-only)
   - [Run Steps: Python (Windows/Mac/Linux)](#run-steps-python-windowsmaclinux)
@@ -35,18 +35,36 @@ Magic: The Gathering Arena draft tool that utilizes 17Lands data.
     - [Version Management](#version-management)
     - [Building the Executable](#building-the-executable)
 
-## Run Steps: Windows Executable (Windows Only)
+## Security, Verification & macOS Gatekeeper
 
-- **Step 1:** Download the latest zip file from the [releases page](https://github.com/unrealities/MTGA_Draft_17Lands/releases).
-- **Step 2:** Unzip and double-click the exe file to start the installation.
-- **Step 3:** (Optional) Go to the installed folder and right-click the executable (`MTGA_Draft_Tool.exe`), click properties, compatibility tab, and check "Run this program as an administrator."
-  - This step is only required if the application is installed in a directory with write restrictions (i.e., `Program Files` and `Program Files (x86)`).
-- **Step 4:** In Arena, go to Adjust Options, Account, and then check the Detailed Logs (Plugin Support) check box.
-- **Step 5:** Double-click `MTGA_Draft_Tool.exe` to start the program.
-- **Step 6:** Click the **Datasets** tab to download the sets you plan to use.
-- **Step 7:** Configure the tool through `File -> Preferences...`.
-- **Step 8:** Start the draft in Arena.
-  - The Arena log doesn't list P1P1 for premier and traditional drafts until after P1P2. Pressing the `P1P1` button will help OCR identify the cards in your first pack.
+Because this is a free, open-source community project, the application is not signed with a paid Apple Developer Certificate ($100/year). As a result, macOS and Windows SmartScreen will flag the application as an "Unidentified Developer."
+
+To guarantee the integrity of your download, our GitHub Actions pipeline automatically generates a **SHA-256 Checksum** for every release. You can compare the hash of your downloaded file against the `.sha256` file listed on the [Releases page](https://github.com/unrealities/MTGA_Draft_17Lands/releases) to verify it has not been modified.
+
+**Mac Users: Bypassing the "App is Damaged" or "Malware" prompt**
+macOS actively quarantines unsigned apps downloaded from the internet. To run the app safely:
+
+1. Open **Terminal** (Command + Space -> "Terminal").
+2. Type `xattr -cr ` (make sure to include the space at the end!).
+3. Drag and drop the `MTGA_Draft_Tool.app` from your Applications folder directly into the Terminal window.
+4. Press **Enter**. You can now double-click the app to open it normally.
+
+---
+
+## Run Steps: Standalone App (Windows / macOS / Linux)
+
+- **Step 1:** Download the latest release for your operating system from the [releases page](https://github.com/unrealities/MTGA_Draft_17Lands/releases).
+
+- **Step 2:** Install/Extract the application:
+  - **Windows:** Unzip and double-click the installer executable. _(Run as administrator if installing to restricted folders like Program Files)._
+  - **macOS:** Unzip the downloaded file and drag `MTGA_Draft_Tool.app` to your Applications folder. _(See the Security section above if macOS blocks the app from running)_
+  - **Linux:** Extract the `.tar.gz` file and run the executable.
+- **Step 3:** In Arena, go to Adjust Options, Account, and check the Detailed Logs (Plugin Support) check box.
+- **Step 4:** Launch the `MTGA_Draft_Tool` application.
+- **Step 5:** Click the **Datasets** tab to download the 17Lands data for the sets you plan to play.
+- **Step 6:** Configure the tool through `File -> Preferences...`.
+- **Step 7:** Start the draft in Arena.
+  - _Note: MTG Arena doesn't list the very first pack (P1P1) in the log for human drafts. Clicking the `SCAN P1P1` button in the app will use OCR to instantly identify the cards on your screen._
 
 ## Run Steps: Python (Windows/Mac/Linux)
 
@@ -66,11 +84,12 @@ Magic: The Gathering Arena draft tool that utilizes 17Lands data.
 
 ## Marquee Features
 
-- **Tactical Advisor ("The Brain"):** A custom formulaic engine that calculates a 0-100 `VALUE` score for cards in your pack. It dynamically weighs raw Z-Score power, color commitment (Alien Gold protection), curve needs, and relative wheel probability to suggest optimal picks. Look for the ⭐ symbol for elite "Bomb" picks.
+- **Tactical Advisor ("The Brain"):** A custom formulaic engine that calculates a 0-100 `VALUE` score for cards in your pack. It dynamically weighs raw Z-Score power, color commitment (Alien Gold protection), curve needs, and relative wheel probability to suggest optimal picks. Look for the ⭐ symbol for elite "Bomb" picks. You can also click directly on the suggested card names to view their full tooltips.
+- **Right-Click Context Menus:** Right-click on any card in the data tables to instantly send it to the Comparisons tab, copy its name to your clipboard, or view its rulings on Scryfall.
+- **Visual Pick Confirmation:** The Live Pack table highlights the specific card you just picked in green, providing instant visual confirmation. The app also keeps the previous pack cleanly displayed on screen until the next one physically arrives, eliminating awkward blank screens between picks.
 - **Mini Mode:** Click the `Mini Mode` button to hide the main dashboard and display a compact, draggable, always-on-top window. Perfect for single-monitor setups or playing seamlessly over the Arena client.
 - **Dynamic Columns:** You can customize the columns displayed in any table (Pack, Missing, Card Pool, Compare) by **Right-Clicking the column header**. Add specific 17Lands stats or remove ones you don't need. The app remembers your layout.
 - **Themes & Mana Flairs:** Under the `Theme` menu, you can select custom "Mana Flairs" (Forest, Island, Swamp, Mountain, Plains, Wastes) or fall back to your Native OS System theme.
-- **Card Tooltips:** Clicking on any card row will display a tooltip containing the card images (back and front), detailed 17Lands data, and archetype breakdown.
 
 ## UI Navigation & Tabs
 
@@ -85,9 +104,9 @@ The application is structured into a collapsible Live Dashboard and functional t
 
 ### Application Tabs
 
-- **Datasets:** Manage, download, and update 17Lands card data locally.
+- **Datasets:** Manage, download, and update 17Lands card data locally. Provides detailed download summaries, including exactly how many MTGA cards were successfully matched with 17Lands telemetry data.
 - **Card Pool:** View the cards you have drafted. Features a **"Switch to Visual View"** button to stack your cards into mana curve columns exactly like MTG Arena does.
-- **Deck Builder:** Generates multiple deck variants (Midrange, Aggro, Bomb Splash) from your drafted pool, utilizing Frank Karsten's mana base math. Allows you to copy the deck to your clipboard.
+- **Deck Builder:** Generates multiple distinct deck variants (Midrange, Aggro, Bomb Splash, and "Good Stuff / Soup") from your drafted pool, utilizing Frank Karsten's mana base math. Allows you to copy the deck to your clipboard.
 - **Comparisons:** Search and add multiple cards to directly compare their stats side-by-side.
 - **Tier Lists:** Import and manage custom tier lists from the 17Lands API.
 
@@ -97,7 +116,7 @@ Access Settings via `File -> Preferences...`
 
 - **Win Rate Format:** Switch the results for win rate fields (GIHWR, OHWR) between a Percentage, a 5-point Rating scale, or Grades (A+ to F).
 - **Deck Filter Format:** Switch the Deck Filter dropdown to display either color permutations (e.g., UB, BG) or guild/shard names (e.g., Dimir, Golgari).
-- **UI Scale:** Increase or decrease the application text and image sizes globally.
+- **UI Scale:** Increase or decrease the application text and image sizes globally (from 40% up to 250%). Perfect for smaller laptop displays or massive 4k monitors.
 - **Highlight Row by Mana Cost:** Colors the background of table rows based on the card's color identity.
 - **Auto-Switch Deck Filter to Best Colors:** When the filter is set to "Auto", the app tracks your picks and will automatically switch to displaying data for your confirmed color pair once your lane is identified.
 - **Enable P1P1 OCR:** Enables [The P1P1 Solution](#the-p1p1-solution). Turning this off removes the `P1P1` button from the UI.
@@ -166,7 +185,10 @@ The application includes notifications to ensure datasets are always up-to-date.
 - **Missing cards after restarting Arena:** Arena creates a new log after every restart. The application cannot track cards picked prior to an Arena restart.
 
 ### Desyncs & Missed Picks
-If you disconnect from MTG Arena, or the application misses a pick, click the **Reload** button in the main dashboard. This will wipe the application's current memory, instantly re-read the entire log file from the beginning, and reconstruct your exact draft state.
+
+The application features robust crash-recovery and state persistence. If you close the app mid-draft (or MTG Arena crashes), simply reopening the app will instantly resume your draft exactly where you left off.
+
+If the log file ever severely desyncs, click the **Reload** button in the main dashboard. This will wipe the application's current memory, rapidly re-read the entire log file from the beginning, and cleanly reconstruct your draft state.
 
 ### Arena Log Issues
 
@@ -189,6 +211,7 @@ For developers looking to contribute, fork, or understand the architecture of th
 
    ```bash
    pip install -r requirements.txt
+   ```
 
 ### Running Tests
 
@@ -198,24 +221,27 @@ This project uses `pytest` for unit testing.
 python -m pytest tests/
 ```
 
-### Version Management
+### Automated Releases & Version Management
 
-To automate updating the version number across `src/constants.py`, `builder/Installer.iss`, and creating a new entry in `release_notes.txt`, use the included script:
+This project uses a fully automated CI/CD pipeline via GitHub Actions. Creating a new public release is entirely frictionless.
 
-- **Patch Bump (+0.01):** `python bump_version.py`
-- **Major Bump (+1.0):** `python bump_version.py major`
-- **Manual Set:** `python bump_version.py --set 3.50`
+The pipeline triggers **automatically whenever code is merged into the `master` branch.** It reads the version number from `src/constants.py`, generates the git tag, builds the macOS/Linux/Windows executables, and publishes them to the Releases page.
 
-### Building the Executable
+**The Workflow:**
 
-This project uses a [GitHub Action](https://github.com/unrealities/MTGA_Draft_17Lands/actions/workflows/build-windows-exe.yml) for official builds. To build locally on Windows:
+1. On your feature branch, run the bump script:
+   - **Patch Bump (+0.01):** `python bump_version.py`
+   - **Major Bump (+1.0):** `python bump_version.py major`
+   - **Manual Set:** `python bump_version.py --set 4.50`
+2. The script will update your config files and ask: `Would you like to automatically commit and push these changes to your branch? (y/N)`
+3. Type `y` and press **Enter**.
+4. Go to GitHub and merge your Pull Request into `master`. The release will build and publish automatically.
 
-1. **Build EXE:**
+_(Note: If you merge code into master without bumping the version number, the pipeline will simply rebuild and update the executables on the existing release—perfect for hotfixes)_
 
-   ```bash
-   python -m PyInstaller main.spec --clean
-   ```
+### Building Locally
 
-2. **Build Installer:**
-   - [Download Inno Setup](https://jrsoftware.org/isdl.php#stable).
-   - Open `builder/Installer.iss` with Inno Setup and click **Build -> Compile**.
+If you need to test builds locally on your own machine instead of using GitHub Actions:
+
+- **macOS/Linux:** `python -m PyInstaller main.spec --clean`
+- **Windows:** Compile `main.spec` with PyInstaller, then open `builder/Installer.iss` with [Inno Setup](https://jrsoftware.org/isdl.php#stable) and click **Build -> Compile**.

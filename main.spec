@@ -27,7 +27,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -35,3 +35,17 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+# Only build the Mac .app bundle if running on macOS
+import sys
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='MTGA_Draft_Tool.app',
+        icon=None, # Add a path to an .icns file here if you have one
+        bundle_identifier='com.unrealities.mtgadrafttool',
+        info_plist={
+            'NSHighResolutionCapable': 'True',
+            'LSBackgroundOnly': 'False',
+        }
+    )
