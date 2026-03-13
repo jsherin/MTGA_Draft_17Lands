@@ -481,6 +481,16 @@ class ModernTreeview(ttk.Treeview):
     def _setup_headers(self, columns):
         from src.constants import COLUMN_FIELD_LABELS
 
+        # Tree column (#0) holds mana icons; give it fixed width so name column stays left-aligned with room for icons
+        self.heading("#0", text="")
+        self.column(
+            "#0",
+            width=52,
+            minwidth=52,
+            stretch=False,
+            anchor=tkinter.CENTER,
+        )
+
         for i in columns:
             if i == "add_btn":
                 self.heading(i, text="+")
