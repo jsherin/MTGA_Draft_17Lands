@@ -1029,6 +1029,19 @@ class DraftApp:
 
         self.orchestrator.trigger_full_scan()
 
+    def _filter_icon_for_key(self, key: str):
+        """Return PhotoImage for filter key (Auto, All Decks, W, U, WU, etc.)."""
+        if self._mana_cache is None:
+            self._mana_cache = ManaImageCache(size=16)
+        if key in (constants.FILTER_OPTION_AUTO, constants.FILTER_OPTION_ALL_DECKS):
+            return self._mana_cache.get_single("C")
+        colors = [c for c in key if c in constants.CARD_COLORS]
+        if not colors:
+            return self._mana_cache.get_single("C")
+        if len(colors) == 1:
+            return self._mana_cache.get_single(colors[0])
+        return self._mana_cache.get_compound(colors)
+
     def _update_deck_filter_options(self):
         """Refreshes the Deck Filter dropdown with latest 17Lands win rates."""
         # Logic Guard: Allow execution during startup/tests by checking if var is empty
@@ -1045,21 +1058,30 @@ class DraftApp:
 
             menu = self.om_filter["menu"]
             menu.delete(0, "end")
+            self._deck_filter_menu_images.clear()
 
             # Build key -> label so we can add menu items in WUBRG order
             key_to_label = {key: label for label, key in rate_map.items()}
             for key in constants.DECK_FILTERS:
                 if key in key_to_label:
                     label = key_to_label[key]
+                    icon = self._filter_icon_for_key(key)
+                    self._deck_filter_menu_images.append(icon)
                     menu.add_command(
                         label=label,
+                        image=icon,
+                        compound=tkinter.LEFT,
                         command=lambda v=label: self.vars["deck_filter"].set(v),
                     )
             # Any keys from rate_map not in DECK_FILTERS (e.g. three-color) append at end
             for label, key in rate_map.items():
                 if key not in constants.DECK_FILTERS:
+                    icon = self._filter_icon_for_key(key)
+                    self._deck_filter_menu_images.append(icon)
                     menu.add_command(
                         label=label,
+                        image=icon,
+                        compound=tkinter.LEFT,
                         command=lambda v=label: self.vars["deck_filter"].set(v),
                     )
 

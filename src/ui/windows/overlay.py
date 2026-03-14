@@ -275,14 +275,20 @@ class CompactOverlay(tb.Toplevel):
         for key in constants.DECK_FILTERS:
             if key in key_to_label:
                 label = key_to_label[key]
+                icon = self.app_context._filter_icon_for_key(key)
                 filter_menu.add_command(
                     label=label,
+                    image=icon,
+                    compound=tkinter.LEFT,
                     command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
                 )
         for label, key in self.app_context.deck_filter_map.items():
             if key not in constants.DECK_FILTERS:
+                icon = self.app_context._filter_icon_for_key(key)
                 filter_menu.add_command(
                     label=label,
+                    image=icon,
+                    compound=tkinter.LEFT,
                     command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
                 )
         menu.add_cascade(label="Colors (Filter)", menu=filter_menu)
