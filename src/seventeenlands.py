@@ -9,7 +9,7 @@ import os
 import json
 import logging
 from typing import List, Dict, Any, Optional
-from src.utils import is_cache_stale, normalize_color_string
+from src.utils import is_cache_stale, normalize_color_string, sanitize_card_name
 from src.constants import BASE_DIR
 
 logger = logging.getLogger(__name__)
@@ -132,6 +132,8 @@ class Seventeenlands:
             name = card.get("name")
             if not name:
                 continue
+
+            name = sanitize_card_name(name)
 
             if name not in card_map:
                 card_map[name] = {
@@ -264,6 +266,8 @@ class Seventeenlands:
             name = card.get("name")
             if not name:
                 continue
+
+            name = sanitize_card_name(name)
 
             if name not in card_data:
                 card_data[name] = {

@@ -9,7 +9,7 @@ from src import constants
 from src.configuration import write_configuration
 from src.file_extractor import FileExtractor
 from src.utils import retrieve_local_set_list
-from src.ui.components import DynamicTreeviewManager
+from src.ui.components import DynamicTreeviewManager, AutoScrollbar
 
 
 @dataclass
@@ -38,8 +38,33 @@ class DownloadWindow(ttk.Frame):
         self._update_table()
 
     def _build_ui(self):
-        container = ttk.Frame(self, padding=10)
-        container.pack(fill="both", expand=True)
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        canvas = tkinter.Canvas(self, highlightthickness=0)
+        scrollbar = AutoScrollbar(self, orient="vertical", command=canvas.yview)
+
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        container = ttk.Frame(canvas, padding=10)
+        canvas_window = canvas.create_window((0, 0), window=container, anchor="nw")
+
+        def _on_content_resize(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_resize(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        container.bind("<Configure>", _on_content_resize)
+        canvas.bind("<Configure>", _on_canvas_resize)
+
+        from src.utils import bind_scroll
+
+        bind_scroll(canvas, canvas.yview_scroll)
+        bind_scroll(container, canvas.yview_scroll)
+
         self.table_manager = DynamicTreeviewManager(
             container,
             view_id="dataset_manager",
@@ -56,7 +81,7 @@ class DownloadWindow(ttk.Frame):
             ],
             height=4,
         )
-        self.table_manager.pack(fill="both", expand=True, pady=(0, 10))
+        self.table_manager.pack(fill="x", pady=(0, 10))
         self.table = self.table_manager.tree
         form = ttk.Frame(container, style="Card.TFrame", padding=12)
         form.pack(fill="x")
