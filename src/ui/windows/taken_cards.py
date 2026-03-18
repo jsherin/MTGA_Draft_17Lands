@@ -210,7 +210,9 @@ class TakenCardsPanel(ttk.Frame):
                 elif field == "count":
                     row_values.append(card.get("count", 1))
                 elif field == "gihwr":
-                    gihwr_display, _ = format_gihwr_column(deck_colors, active_filter)
+                    gihwr_display, _ = format_gihwr_column(
+                        deck_colors, active_filter, metrics
+                    )
                     row_values.append(gihwr_display)
                 elif field == "gpwr":
                     gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
@@ -255,7 +257,7 @@ class TakenCardsPanel(ttk.Frame):
             tag = "bw_odd" if idx % 2 == 0 else "bw_even"
             if int(self.configuration.settings.card_colors_enabled):
                 tag = row_color_tag(card.get(constants.DATA_FIELD_MANA_COST, ""))
-            _, gihwr_sort = format_gihwr_column(deck_colors, active_filter)
+            _, gihwr_sort = format_gihwr_column(deck_colors, active_filter, metrics)
             processed_rows.append({
                 "vals": row_values,
                 "tag": tag,

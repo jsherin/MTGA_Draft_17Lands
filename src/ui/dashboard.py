@@ -628,7 +628,9 @@ class DashboardFrame(ttk.Frame):
             deck_colors = card.get("deck_colors", {})
             stats = deck_colors.get(active_filter, {})
             rec = rec_map.get(name)
-            gihwr_display, gihwr_sort = format_gihwr_column(deck_colors, active_filter)
+            gihwr_display, gihwr_sort = format_gihwr_column(
+                deck_colors, active_filter, metrics
+            )
             gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
             mana_photo = self._mana_cache.get_for_card(
                 card.get(constants.DATA_FIELD_MANA_COST)

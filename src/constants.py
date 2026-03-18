@@ -609,11 +609,7 @@ _DECK_FILTER_WUBRG_ORDER = (
     + ["WUB", "WUR", "WUG", "WBR", "WBG", "WRG", "UBR", "UBG", "URG", "BRG"]
 )
 
-# Deck filter dropdown: All Decks then options in WUBRG order (single-, two-, three-color only)
-DECK_FILTER_COLORS = [FILTER_OPTION_ALL_DECKS] + [
-    k for k in _DECK_FILTER_WUBRG_ORDER if k in COLOR_NAMES_DICT and len(k) <= 3
-]
-DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_FILTER_COLORS
+DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_COLORS
 
 # Two-color guild pairs for GIHWR breakdown display (WUBRG order)
 TWO_COLOR_PAIRS = ["WU", "UB", "BR", "RG", "GW", "WB", "BG", "UG", "UR", "WR"]

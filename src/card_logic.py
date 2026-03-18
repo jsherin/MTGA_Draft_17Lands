@@ -157,7 +157,7 @@ def row_color_tag(mana_cost):
     return constants.CARD_ROW_COLOR_COLORLESS_TAG
 
 
-def format_gihwr_column(deck_colors, current_filter):
+def format_gihwr_column(deck_colors, current_filter, metrics=None):
     """
     Format the GIHWR table column with primary (current filter) value plus
     two-color pair breakdown. Returns (display_string, sort_value).
@@ -168,7 +168,12 @@ def format_gihwr_column(deck_colors, current_filter):
         return "-", 0.0
     primary_stats = deck_colors.get(current_filter, {})
     primary_gihwr = primary_stats.get(constants.DATA_FIELD_GIHWR, 0.0)
-    has_primary = primary_gihwr and primary_gihwr != 0.0
+    # Preserve legacy behavior for All Decks: show "-" when 0.0 rather than "All Decks: -"
+    primary_present = (
+        bool(current_filter)
+        and (current_filter in deck_colors)
+        and (current_filter != constants.FILTER_OPTION_ALL_DECKS)
+    )
 
     pair_entries = []
     for pair in constants.TWO_COLOR_PAIRS:
@@ -193,10 +198,32 @@ def format_gihwr_column(deck_colors, current_filter):
         and current_filter != constants.FILTER_OPTION_ALL_DECKS
     )
 
-    if has_primary:
-        left = f"{current_filter}: {primary_gihwr:.1f}" if current_filter else f"{primary_gihwr:.1f}"
+    if primary_present:
+        left_val = f"{primary_gihwr:.1f}" if primary_gihwr and primary_gihwr != 0.0 else "-"
+
+        # Optional WR delta vs archetype average (metrics provided in live UI only)
+        delta_str = ""
+        try:
+            if (
+                metrics is not None
+                and current_filter
+                and current_filter != constants.FILTER_OPTION_ALL_DECKS
+                and primary_gihwr
+                and primary_gihwr != 0.0
+            ):
+                mean, _ = metrics.get_metrics(current_filter, constants.DATA_FIELD_GIHWR)
+                if mean and mean != 0.0:
+                    diff = primary_gihwr - mean
+                    delta_str = f" ({diff:+.1f})"
+        except Exception as e:
+            logger.error(f"format_gihwr_column delta error: {e}")
+
+        left = f"{current_filter}: {left_val}{delta_str}"
         parts = [left] + pair_strs
-        sort_val = primary_gihwr + SORT_FILTER_OFFSET if use_offset else primary_gihwr
+        if primary_gihwr and primary_gihwr != 0.0:
+            sort_val = primary_gihwr + SORT_FILTER_OFFSET if use_offset else primary_gihwr
+        else:
+            sort_val = ad_gihwr + SORT_FILTER_OFFSET if (use_offset and ad_gihwr) else ad_gihwr
         return "  ".join(parts), sort_val
     if pair_strs:
         if current_filter:
@@ -204,6 +231,9 @@ def format_gihwr_column(deck_colors, current_filter):
         else:
             sort_val = pair_entries[0][1] if pair_entries else ad_gihwr
         return "  ".join(pair_strs), sort_val
+    # All Decks-only fallback
+    if current_filter == constants.FILTER_OPTION_ALL_DECKS and primary_gihwr and primary_gihwr != 0.0:
+        return f"{primary_gihwr:.1f}", primary_gihwr
     return "-", 0.0
 
 
@@ -217,7 +247,12 @@ def format_gpwr_column(deck_colors, current_filter):
         return "-", 0.0
     primary_stats = deck_colors.get(current_filter, {})
     primary_gpwr = primary_stats.get(constants.DATA_FIELD_GPWR, 0.0)
-    has_primary = primary_gpwr and primary_gpwr != 0.0
+    # Preserve legacy behavior for All Decks: show "-" when 0.0 rather than "All Decks: -"
+    primary_present = (
+        bool(current_filter)
+        and (current_filter in deck_colors)
+        and (current_filter != constants.FILTER_OPTION_ALL_DECKS)
+    )
 
     pair_entries = []
     for pair in constants.TWO_COLOR_PAIRS:
@@ -241,10 +276,14 @@ def format_gpwr_column(deck_colors, current_filter):
         and current_filter != constants.FILTER_OPTION_ALL_DECKS
     )
 
-    if has_primary:
-        left = f"{current_filter}: {primary_gpwr:.1f}" if current_filter else f"{primary_gpwr:.1f}"
+    if primary_present:
+        left_val = f"{primary_gpwr:.1f}" if primary_gpwr and primary_gpwr != 0.0 else "-"
+        left = f"{current_filter}: {left_val}"
         parts = [left] + pair_strs
-        sort_val = primary_gpwr + SORT_FILTER_OFFSET if use_offset else primary_gpwr
+        if primary_gpwr and primary_gpwr != 0.0:
+            sort_val = primary_gpwr + SORT_FILTER_OFFSET if use_offset else primary_gpwr
+        else:
+            sort_val = ad_gpwr + SORT_FILTER_OFFSET if (use_offset and ad_gpwr) else ad_gpwr
         return "  ".join(parts), sort_val
     if pair_strs:
         if current_filter:
@@ -252,6 +291,9 @@ def format_gpwr_column(deck_colors, current_filter):
         else:
             sort_val = pair_entries[0][1] if pair_entries else ad_gpwr
         return "  ".join(pair_strs), sort_val
+    # All Decks-only fallback
+    if current_filter == constants.FILTER_OPTION_ALL_DECKS and primary_gpwr and primary_gpwr != 0.0:
+        return f"{primary_gpwr:.1f}", primary_gpwr
     return "-", 0.0
 
 

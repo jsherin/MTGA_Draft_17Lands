@@ -4,7 +4,7 @@ import json
 from src import constants
 from src.set_metrics import SetMetrics
 from src.configuration import Configuration, Settings
-from src.card_logic import CardResult
+from src.card_logic import CardResult, format_gihwr_column
 from src.dataset import Dataset
 from src.tier_list import TierList, Meta, Rating
 from unittest.mock import MagicMock
@@ -291,6 +291,38 @@ def test_format_gihwr_column_no_primary_has_ad_sort_by_ad():
     display, sort_val = format_gihwr_column(deck_colors, "WU")
     assert "AD: 53.5" in display
     assert sort_val == 53.5  # AD value so these rows sort below filter-data, ordered by AD
+
+
+class _DummyMetrics:
+    def __init__(self, mean):
+        self._mean = mean
+
+    def get_metrics(self, color, field):
+        # Only GIHWR is used in format_gihwr_column delta calculation
+        assert field == constants.DATA_FIELD_GIHWR
+        return self._mean, 4.0
+
+
+def test_format_gihwr_column_includes_positive_delta_for_filter_pair():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 53.0},
+        "WU": {constants.DATA_FIELD_GIHWR: 56.2},
+    }
+    metrics = _DummyMetrics(mean=55.0)
+    display, sort_val = format_gihwr_column(deck_colors, "WU", metrics)
+    assert "WU: 56.2 (+1.2)" in display
+    # Sort value should still use the raw GIHWR with offset
+    assert sort_val == 56.2 + 10000.0
+
+
+def test_format_gihwr_column_includes_negative_delta_for_filter_pair():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 53.0},
+        "WU": {constants.DATA_FIELD_GIHWR: 53.8},
+    }
+    metrics = _DummyMetrics(mean=55.0)
+    display, sort_val = format_gihwr_column(deck_colors, "WU", metrics)
+    assert "WU: 53.8 (-1.2)" in display
 
 
 # --- format_gpwr_column (mirror of format_gihwr_column sort logic) ---
