@@ -418,7 +418,9 @@ class DashboardFrame(ttk.Frame):
         self.rail_btn.grid(row=0, column=1, rowspan=2, sticky="", padx=(2, 2))
 
         # --- RIGHT: Sidebar ---
-        self.sidebar_frame = ttk.Frame(self.h_splitter, width=280)
+        # Default to a very thin sidebar; user can drag wider.
+        self._sidebar_default_width = 10
+        self.sidebar_frame = ttk.Frame(self.h_splitter, width=self._sidebar_default_width)
 
         self.sidebar_frame.rowconfigure(0, weight=1)
         self.sidebar_frame.columnconfigure(0, weight=1)
@@ -580,7 +582,9 @@ class DashboardFrame(ttk.Frame):
                             dash_sash = getattr(
                                 self.configuration.settings, "dashboard_sash", 800
                             )
-                            safe_sash = min(dash_sash, curr_w - 280)
+                            # Clamp so the sidebar never consumes the full width.
+                            sidebar_w = getattr(self, "_sidebar_default_width", 10)
+                            safe_sash = min(dash_sash, max(50, curr_w - sidebar_w))
                             if safe_sash > 50:
                                 self.h_splitter.sashpos(0, safe_sash)
                     except Exception:
@@ -632,6 +636,7 @@ class DashboardFrame(ttk.Frame):
         source_type="pack",
         recommendations=None,
         picked_cards=None,
+        deck_filter_map=None,
     ):
         tree = self.get_treeview(source_type)
         if not tree or not hasattr(tree, "active_fields"):
@@ -671,7 +676,7 @@ class DashboardFrame(ttk.Frame):
             stats = deck_colors.get(active_filter, {})
             rec = rec_map.get(name)
             gihwr_display, gihwr_sort = format_gihwr_column(
-                deck_colors, active_filter, metrics
+                deck_colors, active_filter, deck_filter_map
             )
             gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
             mana_photo = self._mana_cache.get_for_card(
@@ -850,7 +855,8 @@ class DashboardFrame(ttk.Frame):
             self.update_idletasks()
 
             current_width = self.winfo_width()
-            default_sash = max(50, current_width - 280) if current_width > 280 else 800
+            sidebar_w = getattr(self, "_sidebar_default_width", 10)
+            default_sash = max(50, current_width - sidebar_w) if current_width > sidebar_w else 50
 
             dash_sash = getattr(
                 self.configuration.settings, "dashboard_sash", default_sash

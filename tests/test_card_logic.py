@@ -229,7 +229,7 @@ def test_format_gihwr_column_primary_only():
         "All Decks": {constants.DATA_FIELD_GIHWR: 54.0},
     }
     display, sort_val = format_gihwr_column(deck_colors, "All Decks")
-    assert "54.0" in display
+    assert "AD: 54.0" in display
     assert sort_val == 54.0
 
 
@@ -291,6 +291,43 @@ def test_format_gihwr_column_no_primary_has_ad_sort_by_ad():
     display, sort_val = format_gihwr_column(deck_colors, "WU")
     assert "AD: 53.5" in display
     assert sort_val == 53.5  # AD value so these rows sort below filter-data, ordered by AD
+
+
+def test_format_gihwr_column_pair_entries_include_delta_when_metrics_provided():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 53.0},
+        "UB": {constants.DATA_FIELD_GIHWR: 54.2},
+    }
+
+    class _M:
+        def get_metrics(self, color, field):
+            assert field == constants.DATA_FIELD_GIHWR
+            means = {"All Decks": 52.0, "UB": 55.0}
+            return means.get(color, 0.0), 4.0
+
+    display, _ = format_gihwr_column(deck_colors, "WU", _M())
+    # Filter WU has no data, so display shows UB and AD, each with their own deltas
+    assert "UB: 54.2 (-0.8)" in display
+    assert "AD: 53.0" in display
+
+
+def test_format_gihwr_column_all_decks_puts_ad_first_and_no_delta():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GIHWR: 53.0},
+        "UB": {constants.DATA_FIELD_GIHWR: 54.2},
+        "WU": {constants.DATA_FIELD_GIHWR: 55.1},
+    }
+
+    class _M:
+        def get_metrics(self, color, field):
+            assert field == constants.DATA_FIELD_GIHWR
+            means = {"All Decks": 52.0, "UB": 55.0, "WU": 54.0}
+            return means.get(color, 0.0), 4.0
+
+    display, _ = format_gihwr_column(deck_colors, "All Decks", _M())
+    # AD should be at the front and should not have a differential
+    assert display.startswith("AD: 53.0")
+    assert "AD: 53.0 (" not in display
 
 
 class _DummyMetrics:

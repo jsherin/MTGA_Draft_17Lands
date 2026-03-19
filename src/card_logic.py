@@ -151,7 +151,7 @@ def row_color_tag(mana_cost):
     return constants.CARD_ROW_COLOR_COLORLESS_TAG
 
 
-def format_gihwr_column(deck_colors, current_filter, metrics=None):
+def format_gihwr_column(deck_colors, current_filter, color_ratings=None):
     """
     Format the GIHWR table column with primary (current filter) value plus
     two-color pair breakdown. Returns (display_string, sort_value).
@@ -160,6 +160,28 @@ def format_gihwr_column(deck_colors, current_filter, metrics=None):
     """
     if not deck_colors:
         return "-", 0.0
+
+    def _delta_suffix(color_key: str, value: float) -> str:
+        """Return ' (+x.x)' / ' (-x.x)' vs archetype mean, if metrics available."""
+        try:
+            if (
+                color_ratings is None
+                or not color_key
+                or not value
+                or value == 0.0
+                or color_key not in deck_colors
+            ):
+                return ""
+            # AD does not need a differential
+            if color_key == constants.FILTER_OPTION_ALL_DECKS:
+                return ""
+            mean = color_ratings.get(color_key, 0.0)
+            if not mean or mean == 0.0:
+                return ""
+            return f" ({(value - mean):+.1f})"
+        except Exception as e:
+            logger.error(f"format_gihwr_column delta error: {e}")
+            return ""
     primary_stats = deck_colors.get(current_filter, {})
     primary_gihwr = primary_stats.get(constants.DATA_FIELD_GIHWR, 0.0)
     # Preserve legacy behavior for All Decks: show "-" when 0.0 rather than "All Decks: -"
@@ -176,14 +198,20 @@ def format_gihwr_column(deck_colors, current_filter, metrics=None):
             if gihwr and gihwr != 0.0:
                 pair_entries.append((pair, gihwr))
     pair_entries.sort(key=lambda x: x[1], reverse=True)
-    pair_strs = [f"{p}: {g:.1f}" for p, g in pair_entries]
+    pair_strs = [f"{p}: {g:.1f}{_delta_suffix(p, g)}" for p, g in pair_entries]
     ad_gihwr = 0.0
     if current_filter and constants.FILTER_OPTION_ALL_DECKS in deck_colors:
         ad_gihwr = deck_colors[constants.FILTER_OPTION_ALL_DECKS].get(
             constants.DATA_FIELD_GIHWR, 0.0
         )
-        if ad_gihwr and ad_gihwr != 0.0:
-            pair_strs.append(f"AD: {ad_gihwr:.1f}")
+        ad_str = f"AD: {ad_gihwr:.1f}" if ad_gihwr and ad_gihwr != 0.0 else ""
+        # If All Decks is the active filter, put AD first.
+        if current_filter == constants.FILTER_OPTION_ALL_DECKS:
+            if ad_str:
+                pair_strs = [ad_str] + pair_strs
+        else:
+            if ad_str:
+                pair_strs.append(ad_str)
 
     # Offset so rows with filter data sort above rows with only AD (when a color-pair filter is selected)
     SORT_FILTER_OFFSET = 10000.0
@@ -194,25 +222,7 @@ def format_gihwr_column(deck_colors, current_filter, metrics=None):
 
     if primary_present:
         left_val = f"{primary_gihwr:.1f}" if primary_gihwr and primary_gihwr != 0.0 else "-"
-
-        # Optional WR delta vs archetype average (metrics provided in live UI only)
-        delta_str = ""
-        try:
-            if (
-                metrics is not None
-                and current_filter
-                and current_filter != constants.FILTER_OPTION_ALL_DECKS
-                and primary_gihwr
-                and primary_gihwr != 0.0
-            ):
-                mean, _ = metrics.get_metrics(current_filter, constants.DATA_FIELD_GIHWR)
-                if mean and mean != 0.0:
-                    diff = primary_gihwr - mean
-                    delta_str = f" ({diff:+.1f})"
-        except Exception as e:
-            logger.error(f"format_gihwr_column delta error: {e}")
-
-        left = f"{current_filter}: {left_val}{delta_str}"
+        left = f"{current_filter}: {left_val}{_delta_suffix(current_filter, primary_gihwr)}"
         parts = [left] + pair_strs
         if primary_gihwr and primary_gihwr != 0.0:
             sort_val = primary_gihwr + SORT_FILTER_OFFSET if use_offset else primary_gihwr
@@ -226,8 +236,16 @@ def format_gihwr_column(deck_colors, current_filter, metrics=None):
             sort_val = pair_entries[0][1] if pair_entries else ad_gihwr
         return "  ".join(pair_strs), sort_val
     # All Decks-only fallback
-    if current_filter == constants.FILTER_OPTION_ALL_DECKS and primary_gihwr and primary_gihwr != 0.0:
-        return f"{primary_gihwr:.1f}", primary_gihwr
+    if (
+        current_filter == constants.FILTER_OPTION_ALL_DECKS
+        and primary_gihwr
+        and primary_gihwr != 0.0
+    ):
+        # When filter is All Decks, show AD first
+        return (
+            f"AD: {primary_gihwr:.1f}{_delta_suffix(constants.FILTER_OPTION_ALL_DECKS, primary_gihwr)}",
+            primary_gihwr,
+        )
     return "-", 0.0
 
 

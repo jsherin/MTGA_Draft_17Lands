@@ -185,6 +185,7 @@ class TakenCardsPanel(ttk.Frame):
             return
 
         metrics = self.draft.retrieve_set_metrics()
+        color_ratings = self.draft.set_data.get_color_ratings()
         tier_data = self.draft.retrieve_tier_data()
         t.bind("<<TreeviewSelect>>", self._on_selection)
 
@@ -211,7 +212,7 @@ class TakenCardsPanel(ttk.Frame):
                     row_values.append(card.get("count", 1))
                 elif field == "gihwr":
                     gihwr_display, _ = format_gihwr_column(
-                        deck_colors, active_filter, metrics
+                        deck_colors, active_filter, color_ratings
                     )
                     row_values.append(gihwr_display)
                 elif field == "gpwr":
@@ -257,7 +258,7 @@ class TakenCardsPanel(ttk.Frame):
             tag = "bw_odd" if idx % 2 == 0 else "bw_even"
             if int(self.configuration.settings.card_colors_enabled):
                 tag = row_color_tag(card.get(constants.DATA_FIELD_MANA_COST, ""))
-            _, gihwr_sort = format_gihwr_column(deck_colors, active_filter, metrics)
+            _, gihwr_sort = format_gihwr_column(deck_colors, active_filter, color_ratings)
             processed_rows.append({
                 "vals": row_values,
                 "tag": tag,

@@ -150,7 +150,10 @@ class DraftApp:
                         if dash_sash > 50 and hasattr(self.dashboard, "h_splitter"):
                             curr_w = self.dashboard.winfo_width()
                             if curr_w > 200:
-                                safe_sash = min(dash_sash, curr_w - 280)
+                                sidebar_w = getattr(
+                                    self.dashboard, "_sidebar_default_width", 10
+                                )
+                                safe_sash = min(dash_sash, max(50, curr_w - sidebar_w))
                                 if safe_sash > 50:
                                     self.dashboard.h_splitter.sashpos(0, safe_sash)
                     except Exception:
@@ -662,6 +665,10 @@ class DraftApp:
             self.configuration,
         )
 
+        color_ratings = (
+            self.orchestrator.scanner.set_data.get_color_ratings()
+        )
+
         # Update Auto-Detect Label
         if hasattr(self, "lbl_auto_detect"):
             if self.configuration.settings.deck_filter == constants.FILTER_OPTION_AUTO:
@@ -669,9 +676,6 @@ class DraftApp:
                 if active_color == "All Decks":
                     self.lbl_auto_detect.config(text="(Auto: Detecting...)")
                 else:
-                    color_ratings = (
-                        self.orchestrator.scanner.set_data.get_color_ratings()
-                    )
                     wr_str = (
                         f" {color_ratings[active_color]}%"
                         if active_color in color_ratings
@@ -708,6 +712,7 @@ class DraftApp:
             "pack",
             recommendations,
             current_picked_cards,
+            color_ratings,
         )
         self.dashboard.update_pack_data(
             missing_cards, colors, metrics, tier_data, pi, "missing"
