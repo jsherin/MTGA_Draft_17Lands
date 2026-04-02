@@ -33,6 +33,8 @@ class Seventeenlands:
         self,
         set_code: str,
         draft_format: str,
+        start_date: str,
+        end_date: str,
         colors: List[str] = None,
         user_group: str = "All",
         progress_callback=None,
@@ -63,7 +65,7 @@ class Seventeenlands:
                 progress_callback(msg, pct)
 
             raw_data, from_cache = self._fetch_archetype_with_cache(
-                set_code, draft_format, color, user_group
+                set_code, draft_format, start_date, end_date, color, user_group
             )
             self._process_archetype_data(color, raw_data, master_card_map)
 
@@ -76,11 +78,19 @@ class Seventeenlands:
         return master_card_map
 
     def _fetch_archetype_with_cache(
-        self, set_code: str, draft_format: str, color: str, user_group: str = "All"
+        self,
+        set_code: str,
+        draft_format: str,
+        start_date: str,
+        end_date: str,
+        color: str,
+        user_group: str = "All",
     ):
         """Retrieves data from 17Lands, prioritizing the local raw cache."""
         ug_label = user_group if user_group and user_group != "All" else "All"
-        cache_name = f"{set_code}_{draft_format}_{color}_{ug_label}.json".lower()
+
+        cache_name = f"{set_code}_{draft_format}_{start_date}_{end_date}_{color}_{ug_label}.json".lower()
+
         cache_path = os.path.join(self.CACHE_DIR, cache_name)
 
         if not is_cache_stale(cache_path, hours=12):
@@ -89,9 +99,7 @@ class Seventeenlands:
                     cached_data = json.load(f)
                     # Do not use cache if it's an empty array (meaning 17Lands had no data yesterday)
                     if cached_data and len(cached_data) > 0:
-                        logger.info(
-                            f"Using cached 17Lands data for {set_code}/{color}/{ug_label}"
-                        )
+                        logger.info(f"Using cached 17Lands data for {cache_name}")
                         return cached_data, True
             except json.JSONDecodeError:
                 pass  # Cache corrupt, fetch new
@@ -99,7 +107,7 @@ class Seventeenlands:
         # Build URL
         url = (
             f"{self.URL_BASE}/card_ratings/data?expansion={set_code.upper()}"
-            f"&format={draft_format}"
+            f"&format={draft_format}&start_date={start_date}&end_date={end_date}"
         )
         if color != "All" and color != "All Decks":
             url += f"&colors={color}"
@@ -165,6 +173,30 @@ class Seventeenlands:
                     f"{self.URL_BASE}{val}" if val.startswith("/static") else val
                 )
         return imgs
+
+    def get_draft_record(self, draft_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Anonymously queries 17Lands using the MTGA Draft ID to fetch the user's actual match record.
+        """
+        if not draft_id:
+            return None
+
+        # 17Lands strips the hyphens from the MTGA UUID
+        clean_id = draft_id.replace("-", "")
+        url = f"{self.URL_BASE}/data/details?draft_id={clean_id}"
+
+        try:
+            response = self.session.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                # If 'wins' is present, the draft was tracked by 17Lands
+                if data.get("wins") is not None:
+                    data["url"] = f"{self.URL_BASE}/draft/{clean_id}"
+                    return data
+        except Exception as e:
+            logger.debug(f"Failed to fetch 17Lands draft record for {clean_id}: {e}")
+
+        return None
 
     def download_color_ratings(
         self,

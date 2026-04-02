@@ -42,7 +42,7 @@ class CompactOverlay(tb.Toplevel):
             ]
 
         self.overrideredirect(True)
-        geom = getattr(self.configuration.settings, "overlay_geometry", "380x600+50+50")
+        geom = getattr(self.configuration.settings, "overlay_geometry", f"{Theme.scaled_val(380)}x{Theme.scaled_val(600)}+50+50")
         self.geometry(geom)
 
         try:
@@ -75,8 +75,8 @@ class CompactOverlay(tb.Toplevel):
         self._start_y = event.y_root
 
     def _do_resize(self, event):
-        new_w = max(250, self._start_w + (event.x_root - self._start_x))
-        new_h = max(200, self._start_h + (event.y_root - self._start_y))
+        new_w = max(Theme.scaled_val(250), self._start_w + (event.x_root - self._start_x))
+        new_h = max(Theme.scaled_val(200), self._start_h + (event.y_root - self._start_y))
         self.geometry(f"{new_w}x{new_h}")
 
     def _stop_resize(self, event):
@@ -93,7 +93,7 @@ class CompactOverlay(tb.Toplevel):
     def _build_ui(self):
         # --- HEADER (Draggable) ---
         header = tb.Frame(self, bootstyle="secondary")
-        header.pack(fill=X, ipady=5)
+        header.pack(fill=X, ipady=Theme.scaled_val(5))
 
         header.bind("<ButtonPress-1>", self._start_move)
         header.bind("<ButtonRelease-1>", self._stop_move)
@@ -108,26 +108,26 @@ class CompactOverlay(tb.Toplevel):
 
         # Dynamic Info Label (Format | Group | Filter)
         self.lbl_info = tb.Label(
-            header, text="", font=(Theme.FONT_FAMILY, 9), bootstyle="inverse-secondary"
+            header, text="", font=Theme.scaled_font(9), bootstyle="inverse-secondary"
         )
-        self.lbl_info.pack(side=LEFT, padx=(8, 0))
+        self.lbl_info.pack(side=LEFT, padx=Theme.scaled_val((8, 0)))
 
         # Action Buttons
         tb.Button(header, text="⤢", bootstyle="link", command=self._close_overlay).pack(
-            side=RIGHT, padx=(0, 5)
+            side=RIGHT, padx=Theme.scaled_val((0, 5))
         )
         self.btn_settings = tb.Button(
             header, text="⚙", bootstyle="link", command=self._show_settings_menu
         )
-        self.btn_settings.pack(side=RIGHT, padx=2)
+        self.btn_settings.pack(side=RIGHT, padx=Theme.scaled_val(2))
 
         self.lbl_status = tb.Label(
             header,
             text="Waiting...",
-            font=(Theme.FONT_FAMILY, 10, "bold"),
+            font=Theme.scaled_font(10, "bold"),
             bootstyle="inverse-secondary",
         )
-        self.lbl_status.pack(side=RIGHT, padx=5)
+        self.lbl_status.pack(side=RIGHT, padx=Theme.scaled_val(5))
 
         # --- FOOTER (Resize Grip) ---
         footer = tb.Frame(self, bootstyle="secondary")
@@ -138,21 +138,21 @@ class CompactOverlay(tb.Toplevel):
             text=" ⇲ ",
             cursor="hand2",
             bootstyle="inverse-secondary",
-            font=(Theme.FONT_FAMILY, 12),
+            font=Theme.scaled_font(12),
         )
-        grip.pack(side=RIGHT, padx=2)
+        grip.pack(side=RIGHT, padx=Theme.scaled_val(2))
         grip.bind("<ButtonPress-1>", self._start_resize)
         grip.bind("<B1-Motion>", self._do_resize)
         grip.bind("<ButtonRelease-1>", self._stop_resize)
 
         # --- TABBED CONTENT ---
         self.notebook = tb.Notebook(self)
-        self.notebook.pack(fill=BOTH, expand=True, padx=2, pady=2, side=TOP)
+        self.notebook.pack(fill=BOTH, expand=True, padx=Theme.scaled_val(2), pady=Theme.scaled_val(2), side=TOP)
 
-        self.tab_pack = tb.Frame(self.notebook, padding=2)
-        self.tab_advisor = tb.Frame(self.notebook, padding=10)
-        self.tab_stats = tb.Frame(self.notebook, padding=10)
-        self.tab_pool = tb.Frame(self.notebook, padding=2)
+        self.tab_pack = tb.Frame(self.notebook, padding=Theme.scaled_val(2))
+        self.tab_advisor = tb.Frame(self.notebook, padding=Theme.scaled_val(10))
+        self.tab_stats = tb.Frame(self.notebook, padding=Theme.scaled_val(10))
+        self.tab_pool = tb.Frame(self.notebook, padding=Theme.scaled_val(2))
 
         self.notebook.add(self.tab_pack, text=" Pack ")
         self.notebook.add(self.tab_advisor, text=" Advisor ")
@@ -182,7 +182,7 @@ class CompactOverlay(tb.Toplevel):
             text="SEEN CARDS (WHEEL)",
             foreground=None,
             bootstyle="primary",
-        ).pack(anchor="w", pady=(4, 2), padx=2)
+        ).pack(anchor="w", pady=Theme.scaled_val((4, 2)), padx=Theme.scaled_val(2))
         self.missing_manager = DynamicTreeviewManager(
             self.missing_frame,
             view_id="missing_table",
@@ -217,32 +217,32 @@ class CompactOverlay(tb.Toplevel):
         tb.Label(
             self.tab_stats,
             text="OPEN LANES",
-            font=(Theme.FONT_FAMILY, 10, "bold"),
+            font=Theme.scaled_font(10, "bold"),
             bootstyle="primary",
-        ).pack(anchor="w", pady=(0, 5))
+        ).pack(anchor="w", pady=(0, Theme.scaled_val(5)))
         self.signal_meter = SignalMeter(self.tab_stats)
-        self.signal_meter.pack(fill=X, pady=(0, 15))
+        self.signal_meter.pack(fill=X, pady=(0, Theme.scaled_val(15)))
 
         tb.Label(
             self.tab_stats,
             text="MANA CURVE",
-            font=(Theme.FONT_FAMILY, 10, "bold"),
+            font=Theme.scaled_font(10, "bold"),
             bootstyle="primary",
-        ).pack(anchor="w", pady=(0, 5))
+        ).pack(anchor="w", pady=(0, Theme.scaled_val(5)))
         self.curve_plot = ManaCurvePlot(
             self.tab_stats,
             ideal_distribution=self.configuration.card_logic.deck_mid.distribution,
         )
-        self.curve_plot.pack(fill=X, pady=(0, 15))
+        self.curve_plot.pack(fill=X, pady=(0, Theme.scaled_val(15)))
 
         tb.Label(
             self.tab_stats,
             text="POOL BALANCE",
-            font=(Theme.FONT_FAMILY, 10, "bold"),
+            font=Theme.scaled_font(10, "bold"),
             bootstyle="primary",
-        ).pack(anchor="w", pady=(0, 5))
+        ).pack(anchor="w", pady=(0, Theme.scaled_val(5)))
         self.type_chart = TypePieChart(self.tab_stats)
-        self.type_chart.pack(fill=X, pady=(0, 15))
+        self.type_chart.pack(fill=X, pady=(0, Theme.scaled_val(15)))
 
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
@@ -382,7 +382,7 @@ class CompactOverlay(tb.Toplevel):
         self.lbl_status.config(text=f"P{pk} / P{pi}")
 
         if pk <= 1 and pi <= 1:
-            self.btn_scan.pack(side=LEFT, padx=5, before=self.lbl_info)
+            self.btn_scan.pack(side=LEFT, padx=Theme.scaled_val(5), before=self.lbl_info)
         else:
             self.btn_scan.pack_forget()
 
@@ -392,16 +392,42 @@ class CompactOverlay(tb.Toplevel):
         if taken_cards:
             deck_metrics = get_deck_metrics(taken_cards)
             self.curve_plot.update_curve(deck_metrics.distribution_all)
-            c, n, l = 0, 0, 0
+
+            type_counts = {
+                "Creature": 0,
+                "Planeswalker": 0,
+                "Battle": 0,
+                "Instant": 0,
+                "Sorcery": 0,
+                "Enchantment": 0,
+                "Artifact": 0,
+                "Land": 0,
+            }
             for card in taken_cards:
-                t = card.get(constants.DATA_FIELD_TYPES, [])
-                if constants.CARD_TYPE_LAND in t:
-                    l += 1
-                elif constants.CARD_TYPE_CREATURE in t:
-                    c += 1
-                else:
-                    n += 1
-            self.type_chart.update_counts(c, n, l)
+                name = card.get("name", "")
+                types = card.get("types", [])
+
+                # EXCLUDE BASIC LANDS
+                if "Basic" in types or name in constants.BASIC_LANDS:
+                    continue
+
+                if "Creature" in types:
+                    type_counts["Creature"] += 1
+                elif "Planeswalker" in types:
+                    type_counts["Planeswalker"] += 1
+                elif "Battle" in types:
+                    type_counts["Battle"] += 1
+                elif "Instant" in types:
+                    type_counts["Instant"] += 1
+                elif "Sorcery" in types:
+                    type_counts["Sorcery"] += 1
+                elif "Enchantment" in types:
+                    type_counts["Enchantment"] += 1
+                elif "Artifact" in types:
+                    type_counts["Artifact"] += 1
+                elif "Land" in types:
+                    type_counts["Land"] += 1
+            self.type_chart.update_counts(type_counts)
         else:
             self.curve_plot.update_curve([0] * 8)
             self.type_chart.update_counts(0, 0, 0)

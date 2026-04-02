@@ -77,21 +77,25 @@ class CollapsibleFrame(ttk.Frame):
             self.header_frame,
             text="▼" if self.expanded else "▶",
             width=2,
-            font=(Theme.FONT_FAMILY, 10),
+            font=Theme.scaled_font(10),
             bootstyle="primary",
             cursor="hand2",
         )
-        self.toggle_label.pack(side="left", padx=(5, 5), pady=(5, 5))
+        self.toggle_label.pack(
+            side="left", padx=Theme.scaled_val((5, 5)), pady=Theme.scaled_val((5, 5))
+        )
         self.title_label = ttk.Label(
             self.header_frame,
             text=title.upper(),
             cursor="hand2",
-            font=(Theme.FONT_FAMILY, 10, "bold"),
+            font=Theme.scaled_font(10, "bold"),
         )
-        self.title_label.pack(side="left", pady=(5, 5))
+        self.title_label.pack(side="left", pady=Theme.scaled_val((5, 5)))
         self.content_frame = ttk.Frame(self)
         if self.expanded:
-            self.content_frame.pack(fill="both", expand=True, pady=(5, 0))
+            self.content_frame.pack(
+                fill="both", expand=True, pady=Theme.scaled_val((5, 0))
+            )
         self._apply_bindings()
         self.bind_all("<<ThemeChanged>>", self._on_theme_change, add="+")
 
@@ -116,7 +120,9 @@ class CollapsibleFrame(ttk.Frame):
         self.expanded = not self.expanded
         if self.expanded:
             self.toggle_label.config(text="▼")
-            self.content_frame.pack(fill="both", expand=True, pady=(5, 0))
+            self.content_frame.pack(
+                fill="both", expand=True, pady=Theme.scaled_val((5, 0))
+            )
         else:
             self.toggle_label.config(text="▶")
             self.content_frame.pack_forget()
@@ -202,6 +208,15 @@ class CardToolTip(tkinter.Toplevel):
 
     def __init__(self, parent, card, images_enabled, scale):
         super().__init__(parent)
+        try:
+            self._build_ui(parent, card, images_enabled, scale)
+        except Exception as e:
+            from src.logger import create_logger
+
+            create_logger().error(f"Error building tooltip UI: {e}", exc_info=True)
+            self.destroy()
+
+    def _build_ui(self, parent, card, images_enabled, scale):
         # --- 1. Basic Land Filter ---
         # Prevent tooltips from appearing for Basic Lands to reduce clutter
         card_types = card.get("types", [])
@@ -225,13 +240,12 @@ class CardToolTip(tkinter.Toplevel):
         except Exception:
             pass
 
-        name, stats, urls, tags, rarity = (
-            card.get("name", "Unknown"),
-            card.get("deck_colors", {}),
-            card.get("image", []),
-            card.get("tags", []),
-            card.get("rarity", "common").capitalize(),
-        )
+        name = card.get("name", "Unknown")
+        stats = card.get("deck_colors", {})
+        urls = card.get("image", [])
+        tags = card.get("tags", [])
+        rarity = str(card.get("rarity") or "common").capitalize()
+
         h = tb.Frame(self, bootstyle="secondary")
         h.pack(fill="x")
         rc = (
@@ -262,18 +276,16 @@ class CardToolTip(tkinter.Toplevel):
             lbl_rarity.configure(foreground=rc)
         lbl_rarity.pack(side="right")
 
-        b = tb.Frame(self, padding=12)
+        b = tb.Frame(self, padding=Theme.scaled_val(12))
         b.pack(fill="both", expand=True)
 
-        # --- 2. Image Container ---
-        # Reserves space immediately so the tooltip doesn't expand/jump when the image loads
         if images_enabled:
             img_w = int(240 * scale)
             img_h = int(335 * scale)
 
             self.img_frame = tb.Frame(b, width=img_w, height=img_h)
             self.img_frame.pack_propagate(False)
-            self.img_frame.pack(side="left", padx=(0, 15), anchor="n")
+            self.img_frame.pack(side="left", padx=Theme.scaled_val((0, 15)), anchor="n")
 
             self.img_label = tb.Label(self.img_frame)
             self.img_label.pack(fill="both", expand=True)
@@ -292,7 +304,7 @@ class CardToolTip(tkinter.Toplevel):
             font=(Theme.FONT_FAMILY, int(10 * scale), "bold"),
         ).pack(anchor="w")
         gf = tb.Frame(sf)
-        gf.pack(anchor="w", fill="x", pady=(4, 12))
+        gf.pack(anchor="w", fill="x", pady=Theme.scaled_val((4, 12)))
 
         def fp(v, i=False):
             return "-" if not v else (f"{v:+.1f}%" if i else f"{v:.1f}%")
@@ -323,13 +335,18 @@ class CardToolTip(tkinter.Toplevel):
                     gf,
                     text=lbl,
                     font=(Theme.FONT_FAMILY, int(9 * scale)),
-                ).grid(row=ri, column=ci * 2, sticky="w", padx=(0, 6))
+                ).grid(row=ri, column=ci * 2, sticky="w", padx=Theme.scaled_val((0, 6)))
                 tb.Label(
                     gf,
                     text=val,
                     foreground=col,
                     font=(Theme.FONT_FAMILY, int(9 * scale), "bold"),
-                ).grid(row=ri, column=ci * 2 + 1, sticky="w", padx=(0, 20))
+                ).grid(
+                    row=ri,
+                    column=ci * 2 + 1,
+                    sticky="w",
+                    padx=Theme.scaled_val((0, 20)),
+                )
         va = sorted(
             [
                 k
@@ -348,7 +365,7 @@ class CardToolTip(tkinter.Toplevel):
             ).pack(anchor="w")
             for k in va[:10]:
                 rf = tb.Frame(sf)
-                rf.pack(anchor="w", fill="x", pady=(2, 0))
+                rf.pack(anchor="w", fill="x", pady=Theme.scaled_val((2, 0)))
                 tb.Label(
                     rf,
                     text=f"• {constants.COLOR_NAMES_DICT.get(k, k)} ({k}):",
@@ -368,7 +385,7 @@ class CardToolTip(tkinter.Toplevel):
                 text="CARD ROLES",
                 bootstyle="warning",
                 font=(Theme.FONT_FAMILY, int(10 * scale), "bold"),
-            ).pack(anchor="w", pady=(12, 4))
+            ).pack(anchor="w", pady=Theme.scaled_val((12, 4)))
             tb.Label(
                 sf,
                 text="   ".join(
@@ -398,27 +415,35 @@ class CardToolTip(tkinter.Toplevel):
         if not hasattr(self, "winfo_exists") or not self.winfo_exists():
             return
 
-        self.update_idletasks()
-        ww = self.winfo_width()
-        wh = self.winfo_height()
+        try:
+            self.update_idletasks()
 
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
+            # Re-verify existence after idle tasks in case a <Leave> event instantly destroyed it
+            if not self.winfo_exists():
+                return
 
-        # Offset aggressively to prevent cursor hovering over the tooltip immediately, causing a rapid <Leave> flicker
-        offset_x, offset_y = 35, 25
+            ww = self.winfo_width()
+            wh = self.winfo_height()
 
-        if self._mouse_x + offset_x + ww > sw:
-            tx = max(self._mouse_x - offset_x - ww - 10, 0)
-        else:
-            tx = max(self._mouse_x + offset_x, 0)
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
 
-        if self._mouse_y + offset_y + wh > sh:
-            ty = max(self._mouse_y - offset_y - wh - 10, 0)
-        else:
-            ty = max(self._mouse_y + offset_y, 0)
+            # Offset aggressively to prevent cursor hovering over the tooltip immediately, causing a rapid <Leave> flicker
+            offset_x, offset_y = 35, 25
 
-        self.geometry(f"+{tx}+{ty}")
+            if self._mouse_x + offset_x + ww > sw:
+                tx = max(self._mouse_x - offset_x - ww - 10, 0)
+            else:
+                tx = max(self._mouse_x + offset_x, 0)
+
+            if self._mouse_y + offset_y + wh > sh:
+                ty = max(self._mouse_y - offset_y - wh - 10, 0)
+            else:
+                ty = max(self._mouse_y + offset_y, 0)
+
+            self.geometry(f"+{tx}+{ty}")
+        except tkinter.TclError:
+            pass
 
     def _load_image_async(self, u, s):
         if "scryfall" in u:
@@ -428,6 +453,8 @@ class CardToolTip(tkinter.Toplevel):
     def _fetch_and_apply_image(self, u, s):
         """Moved the core logic into a clean worker method"""
         try:
+            if not u:
+                return
             sn = hashlib.md5(u.encode("utf-8")).hexdigest() + ".jpg"
             cp = os.path.join(self.IMAGE_CACHE_DIR, sn)
             if os.path.exists(cp):
@@ -599,7 +626,11 @@ class ModernTreeview(ttk.Treeview):
             if i == "add_btn":
                 self.heading(i, text="+")
                 self.column(
-                    i, width=20, minwidth=20, stretch=False, anchor=tkinter.W
+                    i,
+                    width=Theme.scaled_val(40),
+                    minwidth=Theme.scaled_val(40),
+                    stretch=False,
+                    anchor=tkinter.CENTER,
                 )
                 continue
             l = (
@@ -609,7 +640,6 @@ class ModernTreeview(ttk.Treeview):
             )
             self.base_labels[i] = l
 
-            # Immediately draw the sort indicator (arrow) if a sort state was inherited
             if i == self.active_sort_column:
                 rev = self.column_sort_state.get(i, False)
                 display_text = f"{l} {'▼' if rev else '▲'}"
@@ -619,8 +649,8 @@ class ModernTreeview(ttk.Treeview):
             self.heading(i, text=display_text)
             self.column(
                 i,
-                width=140 if i == "name" else 50,
-                minwidth=70 if i == "name" else 30,
+                width=Theme.scaled_val(140) if i == "name" else Theme.scaled_val(50),
+                minwidth=Theme.scaled_val(70) if i == "name" else Theme.scaled_val(30),
                 stretch=True,
                 anchor=tkinter.W,
             )
@@ -1032,7 +1062,11 @@ class DynamicTreeviewManager(ttk.Frame):
         try:
             t = self.winfo_toplevel()
             cw = t.winfo_width()
-            rw = 140 + (len(self.active_fields) * 40) + 40
+            rw = (
+                Theme.scaled_val(140)
+                + (len(self.active_fields) * Theme.scaled_val(40))
+                + Theme.scaled_val(40)
+            )
             if cw < rw:
                 t.geometry(f"{rw}x{t.winfo_height()}")
         except:
@@ -1064,7 +1098,12 @@ class DynamicTreeviewManager(ttk.Frame):
 class SignalMeter(tb.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
-        self.canvas_height, self.bar_width, self.gap, self.scores = 80, 20, 4, {}
+        self.canvas_height, self.bar_width, self.gap, self.scores = (
+            Theme.scaled_val(80),
+            Theme.scaled_val(20),
+            Theme.scaled_val(4),
+            {},
+        )
         self.canvas = tb.Canvas(
             self, height=self.canvas_height, bg=Theme.BG_PRIMARY, highlightthickness=0
         )
@@ -1102,25 +1141,29 @@ class SignalMeter(tb.Frame):
             x, bh = sx + (i * (self.bar_width + self.gap)), v * sc
             self.canvas.create_rectangle(
                 x,
-                self.canvas_height - bh - 12,
+                self.canvas_height - bh - Theme.scaled_val(12),
                 x + self.bar_width,
-                self.canvas_height - 12,
+                self.canvas_height - Theme.scaled_val(12),
                 fill=cm[c],
                 outline="",
             )
             self.canvas.create_text(
                 x + self.bar_width / 2,
-                self.canvas_height - 5,
+                self.canvas_height - Theme.scaled_val(5),
                 text=c,
                 fill=Theme.TEXT_MAIN,
-                font=(Theme.FONT_FAMILY, 9, "bold"),
+                font=Theme.scaled_font(9, "bold"),
             )
 
 
 class ManaCurvePlot(tb.Frame):
     def __init__(self, parent, ideal_distribution, **kwargs):
         super().__init__(parent, **kwargs)
-        self.ideal, self.current, self.canvas_height = ideal_distribution, [0] * 7, 80
+        self.ideal, self.current, self.canvas_height = (
+            ideal_distribution,
+            [0] * 7,
+            Theme.scaled_val(80),
+        )
         self.canvas = tb.Canvas(
             self, height=self.canvas_height, bg=Theme.BG_PRIMARY, highlightthickness=0
         )
@@ -1142,19 +1185,19 @@ class ManaCurvePlot(tb.Frame):
         w = self.canvas.winfo_width()
         if w < 10:
             return
-        bw, gp = 14, 2
+        bw, gp = Theme.scaled_val(14), Theme.scaled_val(2)
         tw = (len(self.current) * bw) + ((len(self.current) - 1) * gp)
-        sx, sc = (w - tw) / 2, (self.canvas_height - 25) / max(
-            max(self.current), max(self.ideal), 5
+        sx, sc = (w - tw) / 2, (self.canvas_height - Theme.scaled_val(25)) / max(
+            max(self.current, default=0), max(self.ideal, default=0), 5
         )
         for i, c in enumerate(self.current):
             x, t = sx + (i * (bw + gp)), self.ideal[i] if i < len(self.ideal) else 0
             if t > 0:
                 self.canvas.create_rectangle(
                     x,
-                    self.canvas_height - (t * sc) - 10,
+                    self.canvas_height - (t * sc) - Theme.scaled_val(10),
                     x + bw,
-                    self.canvas_height - 10,
+                    self.canvas_height - Theme.scaled_val(10),
                     outline=Theme.TEXT_MAIN,
                     width=1,
                     dash=(2, 2),
@@ -1170,35 +1213,35 @@ class ManaCurvePlot(tb.Frame):
             )
             self.canvas.create_rectangle(
                 x,
-                self.canvas_height - (c * sc) - 10,
+                self.canvas_height - (c * sc) - Theme.scaled_val(10),
                 x + bw,
-                self.canvas_height - 10,
+                self.canvas_height - Theme.scaled_val(10),
                 fill=cl,
                 outline="",
             )
             if c > 0:
                 self.canvas.create_text(
                     x + bw / 2,
-                    self.canvas_height - (c * sc) - 17,
+                    self.canvas_height - (c * sc) - Theme.scaled_val(17),
                     text=str(c),
                     fill=Theme.TEXT_MAIN,
-                    font=(Theme.FONT_FAMILY, 9, "bold"),
+                    font=Theme.scaled_font(9, "bold"),
                 )
             self.canvas.create_text(
                 x + bw / 2,
-                self.canvas_height - 4,
+                self.canvas_height - Theme.scaled_val(4),
                 text=str(i) if i < 6 else "6+",
                 fill=Theme.TEXT_MAIN,
-                font=(Theme.FONT_FAMILY, 8),
+                font=Theme.scaled_font(8),
             )
 
 
 class TypePieChart(tb.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
-        self.counts = {"Creatures": 0, "Non-Creatures": 0, "Lands": 0}
-        self.canvas_height = 80
-        self.pie_size = 76  # Slightly smaller to fit bounds cleanly
+        self.counts = {}
+        self.canvas_height = Theme.scaled_val(130)
+        self.pie_size = Theme.scaled_val(80)
 
         self.canvas = tb.Canvas(
             self, height=self.canvas_height, bg=Theme.BG_PRIMARY, highlightthickness=0
@@ -1212,76 +1255,61 @@ class TypePieChart(tb.Frame):
             self.canvas.configure(bg=Theme.BG_PRIMARY)
             self.redraw()
 
-    def update_counts(self, c, n, l):
-        self.counts["Creatures"] = c
-        self.counts["Non-Creatures"] = n
-        self.counts["Lands"] = l
+    def update_counts(self, counts_dict):
+        self.counts = {k: v for k, v in counts_dict.items() if v > 0}
         self.redraw()
 
     def redraw(self):
         self.canvas.delete("all")
         w = self.canvas.winfo_width()
-        if w < 10:
+        if w < 10 or not self.counts:
             return
 
-        c_col = Theme.SUCCESS
-        n_col = Theme.ACCENT
-        l_col = Theme.BG_TERTIARY
+        color_map = {
+            "Creature": Theme.SUCCESS,
+            "Instant": Theme.ACCENT,
+            "Sorcery": Theme.ERROR,
+            "Enchantment": "#a855f7",
+            "Artifact": Theme.WARNING,
+            "Planeswalker": "#14b8a6",
+            "Battle": "#ec4899",
+            "Land": Theme.BG_TERTIARY,
+        }
 
-        items = [
-            ("Crea", self.counts["Creatures"], c_col),
-            ("Spell", self.counts["Non-Creatures"], n_col),
-            ("Land", self.counts["Lands"], l_col),
-        ]
-
-        # Geometry Math to center both elements dynamically
-        legend_w = 60
-        gap = 20
+        legend_w = Theme.scaled_val(85)
+        gap = Theme.scaled_val(20)
         pie_r = self.pie_size / 2
         total_w = legend_w + gap + self.pie_size
-
         sx = max(0, (w - total_w) / 2)
 
         # 1. Draw Legend on the Left
-        ly = (self.canvas_height - (3 * 18)) / 2 + 9
-        for lb, count, cl in items:
+        ly = max(
+            Theme.scaled_val(5),
+            (self.canvas_height - (len(self.counts) * Theme.scaled_val(16))) / 2,
+        )
+        for lb, count in self.counts.items():
+            cl = color_map.get(lb, Theme.TEXT_MUTED)
             self.canvas.create_text(
-                sx, ly, text="●", fill=cl, font=(None, 10), anchor="w"
+                sx, ly, text="●", fill=cl, font=(None, Theme.scaled_val(10)), anchor="w"
             )
             self.canvas.create_text(
-                sx + 12,
+                sx + Theme.scaled_val(12),
                 ly,
                 text=f"{lb}: {count}",
                 fill=Theme.TEXT_MAIN,
-                font=(Theme.FONT_FAMILY, 10),
+                font=Theme.scaled_font(9),
                 anchor="w",
             )
-            ly += 18
+            ly += Theme.scaled_val(16)
 
         # 2. Draw Pie Chart on the Right
         cx = sx + legend_w + gap + pie_r
         cy = self.canvas_height / 2
         tl = sum(self.counts.values())
 
-        if tl == 0:
-            self.canvas.create_oval(
-                cx - pie_r,
-                cy - pie_r,
-                cx + pie_r,
-                cy + pie_r,
-                fill=Theme.BG_SECONDARY,
-                outline="",
-            )
-            return
-
         a = 90
-        for c, cl in [
-            (self.counts["Creatures"], c_col),
-            (self.counts["Non-Creatures"], n_col),
-            (self.counts["Lands"], l_col),
-        ]:
-            if c == 0:
-                continue
+        for lb, c in self.counts.items():
+            cl = color_map.get(lb, Theme.TEXT_MUTED)
             ex = (c / tl) * 360
             self.canvas.create_arc(
                 cx - pie_r,
@@ -1297,7 +1325,7 @@ class TypePieChart(tb.Frame):
             a -= ex
 
         # Donut Hole
-        inner_r = pie_r - 12
+        inner_r = pie_r - Theme.scaled_val(12)
         self.canvas.create_oval(
             cx - inner_r,
             cy - inner_r,
@@ -1313,7 +1341,7 @@ class TypePieChart(tb.Frame):
             cy,
             text=str(tl),
             fill=Theme.TEXT_MAIN,
-            font=(Theme.FONT_FAMILY, 9, "bold"),
+            font=Theme.scaled_font(9, "bold"),
         )
 
 
@@ -1354,11 +1382,11 @@ class CardPile(tb.Frame):
         tb.Label(
             self,
             text=title,
-            font=(Theme.FONT_FAMILY, 10, "bold"),
+            font=Theme.scaled_font(10, "bold"),
             bootstyle="inverse-secondary",
             anchor="center",
-            padding=5,
-        ).pack(fill=X, pady=(0, 2))
+            padding=Theme.scaled_val(5),
+        ).pack(fill=X, pady=Theme.scaled_val((0, 2)))
         self.container = tb.Frame(self)
         self.container.pack(fill=BOTH, expand=True)
 
@@ -1380,17 +1408,22 @@ class CardPile(tb.Frame):
         fg_col = "#f8fafc"
 
         ch = tkinter.Frame(self.container, bg=bg_col, cursor="hand2")
-        ch.pack(fill=X, pady=1, padx=2)
+        ch.pack(fill=X, pady=Theme.scaled_val(1), padx=Theme.scaled_val(2))
 
         tx = f"{cn}x {nm}" if cn > 1 else nm
 
         # Left color strip accent (width 6 is half the old massive block size)
         cv = tkinter.Canvas(
-            ch, width=6, height=24, bg=bg_col, highlightthickness=0, cursor="hand2"
+            ch,
+            width=Theme.scaled_val(6),
+            height=Theme.scaled_val(24),
+            bg=bg_col,
+            highlightthickness=0,
+            cursor="hand2",
         )
         cv.pack(side=LEFT, fill=Y)
 
-        h = 24 / len(cl)
+        h = Theme.scaled_val(24) / len(cl)
         color_map = {
             "W": "#f8f6f1",
             "U": "#3498db",
@@ -1416,10 +1449,10 @@ class CardPile(tb.Frame):
             text=tx,
             bg=bg_col,
             fg=fg_col,
-            font=(Theme.FONT_FAMILY, 10),
+            font=Theme.scaled_font(10),
             anchor="w",
-            padx=6,
-            pady=2,
+            padx=Theme.scaled_val(6),
+            pady=Theme.scaled_val(2),
             cursor="hand2",
         )
         lb.pack(side=LEFT, fill=BOTH, expand=True)
@@ -1429,9 +1462,7 @@ class CardPile(tb.Frame):
                 ch,  # Anchor safely to the row container
                 card_data,
                 self.app.configuration.features.images_enabled,
-                constants.UI_SIZE_DICT.get(
-                    self.app.configuration.settings.ui_size, 1.0
-                ),
+                Theme.current_scale,
             )
 
         # Require an explicit click to view the tooltip to stop erratic hovering/flashing

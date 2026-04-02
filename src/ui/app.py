@@ -26,15 +26,59 @@ from src.ui.orchestrator import DraftOrchestrator
 from src.notifications import Notifications
 from src.ui.windows.overlay import CompactOverlay
 from src.ui.advisor_view import AdvisorPanel
+from src.advisor.engine import DraftAdvisor
+from src.signals import SignalCalculator
 
 # Windows
 from src.ui.windows.taken_cards import TakenCardsPanel
 from src.ui.windows.suggest_deck import SuggestDeckPanel
+from src.ui.windows.custom_deck import CustomDeckPanel
 from src.ui.windows.compare import ComparePanel
 from src.ui.windows.download import DownloadWindow
-from src.ui.windows.tier_list import TierListWindow
+from src.ui.windows.tier_list_panel import TierListWindow
 from src.ui.windows.settings import SettingsWindow
 from src.mana_images import ManaImageCache
+
+
+class LoadingOverlay(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.configure(style="TFrame")
+
+        self.center_box = ttk.Frame(self, padding=Theme.scaled_val(40), style="Card.TFrame")
+        self.center_box.place(relx=0.5, rely=0.45, anchor="center")
+
+        self.title_lbl = ttk.Label(
+            self.center_box,
+            text="Loading Draft",
+            font=Theme.scaled_font(16, "bold"),
+            bootstyle="primary",
+        )
+        self.title_lbl.pack(pady=(0, Theme.scaled_val(10)))
+
+        self.status_lbl = ttk.Label(
+            self.center_box, text="Initializing...", font=Theme.scaled_font(11)
+        )
+        self.status_lbl.pack(pady=(0, Theme.scaled_val(20)))
+
+        self.progress = ttk.Progressbar(
+            self.center_box, mode="indeterminate", length=Theme.scaled_val(300)
+        )
+        self.progress.pack()
+
+    def show(self, title):
+        self.title_lbl.config(text=title)
+        self.progress.start(15)
+        self.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.lift()
+
+    def hide(self):
+        self.progress.stop()
+        self.place_forget()
+
+    def update_status(self, text):
+        self.status_lbl.config(text=text)
+        self.update_idletasks()
 
 
 class DraftApp:
@@ -73,27 +117,7 @@ class DraftApp:
             scanner, configuration, self._refresh_ui_data
         )
 
-        # 3. BUILD UI SHELL (Widget Creation Only)
-        # These calls create the Tkinter objects but do not perform math/IO
-        self._setup_variables()
-        self._build_layout()
-        self._setup_menu()
-
-        # 4. ATTACH INFRASTRUCTURE SERVICES
-        # Notifications requires self.panel_data (created in _build_layout)
-        self.notifications = Notifications(
-            self.root, scanner.set_list, configuration, self.panel_data
-        )
-
-        # 5. VIRTUAL EVENT BINDINGS
-        self.root.bind(
-            "<<ShowDataTab>>",
-            lambda e: self._ensure_tabs_visible()
-            or self.notebook.select(self.panel_data),
-        )
-
-        # 6. INITIAL THEME APPLICATION
-        # Apply theme based on config so widgets aren't the default "Grey" on flicker
+        # 3. INITIAL THEME APPLICATION (Must happen before UI widget construction)
         current_scale = constants.UI_SIZE_DICT.get(
             self.configuration.settings.ui_size, 1.0
         )
@@ -103,6 +127,27 @@ class DraftApp:
             engine=getattr(self.configuration.settings, "theme_base", "clam"),
             custom_path=getattr(self.configuration.settings, "theme_custom_path", ""),
             scale=current_scale,
+        )
+
+        # 4. BUILD UI SHELL (Widget Creation Only)
+        # These calls create the Tkinter objects but do not perform math/IO
+        self._setup_variables()
+        self._build_layout()
+        self._setup_menu()
+
+        self.loading_overlay = LoadingOverlay(self.root)
+
+        # 5. ATTACH INFRASTRUCTURE SERVICES
+        # Notifications requires self.panel_data (created in _build_layout)
+        self.notifications = Notifications(
+            self.root, scanner.set_list, configuration, self.panel_data
+        )
+
+        # 6. VIRTUAL EVENT BINDINGS
+        self.root.bind(
+            "<<ShowDataTab>>",
+            lambda e: self._ensure_tabs_visible()
+            or self.notebook.select(self.panel_data),
         )
 
         # 7. FINAL WINDOW PROTOCOL & METADATA
@@ -132,7 +177,7 @@ class DraftApp:
                 if geom and "x" in geom and not geom.startswith("1x1"):
                     self.root.geometry(geom)
                 else:
-                    self.root.geometry("1200x800")
+                    self.root.geometry(f"{Theme.scaled_val(1200)}x{Theme.scaled_val(800)}")
 
                 self.root.update_idletasks()
 
@@ -141,20 +186,17 @@ class DraftApp:
                 def apply_sashes():
                     try:
                         sash_pos = self.configuration.settings.paned_window_sash
-                        if sash_pos > 50 and self.tabs_visible:
+                        if sash_pos > Theme.scaled_val(50) and self.tabs_visible:
                             self.splitter.sashpos(0, sash_pos)
 
                         dash_sash = getattr(
-                            self.configuration.settings, "dashboard_sash", 800
+                            self.configuration.settings, "dashboard_sash", Theme.scaled_val(800)
                         )
-                        if dash_sash > 50 and hasattr(self.dashboard, "h_splitter"):
+                        if dash_sash > Theme.scaled_val(50) and hasattr(self.dashboard, "h_splitter"):
                             curr_w = self.dashboard.winfo_width()
-                            if curr_w > 200:
-                                sidebar_w = getattr(
-                                    self.dashboard, "_sidebar_default_width", 10
-                                )
-                                safe_sash = min(dash_sash, max(50, curr_w - sidebar_w))
-                                if safe_sash > 50:
+                            if curr_w > Theme.scaled_val(200):
+                                safe_sash = min(dash_sash, curr_w - Theme.scaled_val(280))
+                                if safe_sash > Theme.scaled_val(50):
                                     self.dashboard.h_splitter.sashpos(0, safe_sash)
                     except Exception:
                         pass
@@ -172,7 +214,7 @@ class DraftApp:
             # 2. START THE ENGINE
             self.orchestrator.start()
 
-            # 3. SYNC DROPDOWNS (CRITICAL FIX: Ensure this is called!)
+            # 3. SYNC DROPDOWNS
             try:
                 self._update_data_sources()
                 self._update_deck_filter_options()
@@ -207,6 +249,11 @@ class DraftApp:
 
         if not self.configuration.card_data.latest_dataset:
             self.notebook.select(self.panel_data)
+        elif os.path.basename(self.orchestrator.scanner.arena_file).startswith(
+            "DraftLog_"
+        ):
+            # A past draft was loaded on startup. Auto-show draft results.
+            self.notebook.select(self.panel_suggest)
 
         # Non-critical network tasks
         self.root.after(1500, self._background_update_checks)
@@ -226,7 +273,7 @@ class DraftApp:
                 from src.app_update import AppUpdate
 
                 v, _ = AppUpdate().retrieve_file_version()
-                if v and float(v) > constants.APPLICATION_VERSION:
+                if v and float(v) > float(constants.APPLICATION_VERSION):
                     self.root.after(0, lambda: self.notify_app_update(v))
             except Exception as e:
                 logger.error(f"App update check failed: {e}")
@@ -306,29 +353,29 @@ class DraftApp:
     def _build_layout(self):
         if hasattr(self, "main_container"):
             self.main_container.destroy()
-        self.main_container = ttk.Frame(self.root, padding=8)
+        self.main_container = ttk.Frame(self.root, padding=Theme.scaled_val(8))
         self.main_container.pack(fill="both", expand=True)
 
         # --- HEADER CONTAINER ---
-        header_frame = ttk.Frame(self.main_container, padding=5)
-        header_frame.pack(fill="x", pady=(0, 10))
+        header_frame = ttk.Frame(self.main_container, padding=Theme.scaled_val(5))
+        header_frame.pack(fill="x", pady=(0, Theme.scaled_val(10)))
 
         # ROW 1: Status & Overlay
         row1 = ttk.Frame(header_frame)
-        row1.pack(fill="x", pady=(0, 5))
+        row1.pack(fill="x", pady=(0, Theme.scaled_val(5)))
 
         self.status_dot = ttk.Label(
-            row1, text="●", font=(Theme.FONT_FAMILY, 16), bootstyle="secondary"
+            row1, text="●", font=Theme.scaled_font(16), bootstyle="secondary"
         )
-        self.status_dot.pack(side="left", padx=5)
+        self.status_dot.pack(side="left", padx=Theme.scaled_val(5))
 
         self.lbl_status = ttk.Label(
             row1,
             textvariable=self.vars["status_text"],
-            font=(Theme.FONT_FAMILY, 11, "bold"),
+            font=Theme.scaled_font(11, "bold"),
             bootstyle="primary",
         )
-        self.lbl_status.pack(side="left", padx=(0, 10))
+        self.lbl_status.pack(side="left", padx=(0, Theme.scaled_val(10)))
 
         ttk.Button(
             row1,
@@ -336,16 +383,21 @@ class DraftApp:
             bootstyle="info-outline",
             command=self._enable_overlay,
             width=-10,
-        ).pack(side="right", padx=5)
+        ).pack(side="right", padx=Theme.scaled_val(5))
 
-        self.lbl_set_code = ttk.Label(
+        self.combo_history = ttk.Combobox(
             row1,
             textvariable=self.vars["set_label"],
-            font=(Theme.FONT_FAMILY, 10, "bold"),
-            bootstyle="primary",
-            padding=(5, 2),
+            state="readonly",
+            font=Theme.scaled_font(10, "bold"),
+            width=36,
+            justify="right",
         )
-        self.lbl_set_code.pack(side="right", padx=10)
+        self.combo_history.pack(side="right", padx=Theme.scaled_val(10))
+        self.combo_history.bind("<<ComboboxSelected>>", self._on_history_select)
+        self.combo_history.bind("<Button-1>", lambda e: self._update_history_dropdown())
+
+        self._update_history_dropdown()
 
         # ROW 2: Controls
         row2 = ttk.Frame(header_frame)
@@ -359,7 +411,7 @@ class DraftApp:
             width=7,
             bootstyle="secondary-outline",
         )
-        self.btn_reload.pack(side="left", padx=2)
+        self.btn_reload.pack(side="left", padx=Theme.scaled_val(2))
 
         self.btn_p1p1 = ttk.Button(
             row2,
@@ -387,15 +439,15 @@ class DraftApp:
             "",
             style="Filter.TMenubutton",
         )
-        self.om_filter.pack(side="right", padx=2)
+        self.om_filter.pack(side="right", padx=Theme.scaled_val(2))
 
         self.lbl_auto_detect = ttk.Label(
             self.dataset_controls_frame,
             text="",
-            font=(Theme.FONT_FAMILY, 9, "italic"),
+            font=Theme.scaled_font(9, "italic"),
             bootstyle="info",
         )
-        self.lbl_auto_detect.pack(side="right", padx=8)
+        self.lbl_auto_detect.pack(side="right", padx=Theme.scaled_val(8))
 
         # Group (Right)
         self.om_group = ttk.OptionMenu(
@@ -404,7 +456,7 @@ class DraftApp:
             "",
             style="TMenubutton",
         )
-        self.om_group.pack(side="right", padx=2)
+        self.om_group.pack(side="right", padx=Theme.scaled_val(2))
 
         # Event (Right)
         self.om_event = ttk.OptionMenu(
@@ -413,7 +465,7 @@ class DraftApp:
             "",
             style="TMenubutton",
         )
-        self.om_event.pack(side="right", padx=2)
+        self.om_event.pack(side="right", padx=Theme.scaled_val(2))
 
         # --- BODY ---
         self.splitter = ttk.PanedWindow(self.main_container, orient=tkinter.VERTICAL)
@@ -435,7 +487,7 @@ class DraftApp:
         self.bottom_pane = ttk.Frame(self.splitter)
         self.splitter.add(self.bottom_pane, weight=2)
 
-        self.tab_controls = ttk.Frame(self.top_pane, padding=(10, 5, 10, 5))
+        self.tab_controls = ttk.Frame(self.top_pane, padding=Theme.scaled_val((10, 5, 10, 5)))
         self.tab_controls.pack(side="bottom", fill="x")
 
         self.footer_separator = ttk.Separator(self.top_pane, orient="horizontal")
@@ -450,15 +502,15 @@ class DraftApp:
             command=self._toggle_tabs,
             cursor="hand2",
         )
-        self.btn_toggle_tabs.pack(side="right", padx=5)
+        self.btn_toggle_tabs.pack(side="right", padx=Theme.scaled_val(5))
 
         self.lbl_session_info = ttk.Label(
             self.tab_controls,
-            font=(Theme.FONT_FAMILY, 9),
+            font=Theme.scaled_font(9),
             bootstyle="secondary",
             anchor="w",
         )
-        self.lbl_session_info.pack(side="left", fill="x", expand=True, padx=5)
+        self.lbl_session_info.pack(side="left", fill="x", expand=True, padx=Theme.scaled_val(5))
 
         self.notebook = ttk.Notebook(self.bottom_pane)
         self.notebook.pack(fill="both", expand=True)
@@ -467,7 +519,14 @@ class DraftApp:
             self.notebook, self.orchestrator.scanner, self.configuration
         )
         self.panel_suggest = SuggestDeckPanel(
-            self.notebook, self.orchestrator.scanner, self.configuration
+            self.notebook,
+            self.orchestrator.scanner,
+            self.configuration,
+            on_export_custom=self._export_to_custom_builder,
+            app_context=self,
+        )
+        self.panel_custom = CustomDeckPanel(
+            self.notebook, self.orchestrator.scanner, self.configuration, self
         )
         self.panel_compare = ComparePanel(
             self.notebook, self.orchestrator.scanner, self.configuration
@@ -485,6 +544,7 @@ class DraftApp:
         self.notebook.add(self.panel_data, text=" Datasets ")
         self.notebook.add(self.panel_taken, text=" Card Pool ")
         self.notebook.add(self.panel_suggest, text=" Deck Builder ")
+        self.notebook.add(self.panel_custom, text=" Custom Deck ")
         self.notebook.add(self.panel_compare, text=" Comparisons ")
         self.notebook.add(self.panel_tiers, text=" Tier Lists ")
 
@@ -502,6 +562,103 @@ class DraftApp:
             parts.append(str(start_time))
 
         self.lbl_session_info.config(text=" | ".join(parts))
+
+    def _export_to_custom_builder(self, deck, sb):
+        """Receives a deck from the SuggestDeckPanel and switches focus to CustomDeckPanel"""
+        self.panel_custom.import_deck(deck, sb)
+        self.notebook.select(self.panel_custom)
+
+    def _update_history_dropdown(self):
+        from datetime import datetime
+
+        self.history_files = {}
+        options = []
+
+        # 1. Live Option
+        live_path = self.configuration.settings.arena_log_location
+        if live_path and os.path.exists(live_path):
+            # Try to grab the human-readable set name for the live draft
+            set_display = getattr(self, "detected_set_code", "Arena")
+            if (
+                hasattr(self.orchestrator.scanner, "set_list")
+                and self.orchestrator.scanner.set_list.data
+            ):
+                for name, info in self.orchestrator.scanner.set_list.data.items():
+                    if info.set_code == set_display:
+                        set_display = name
+                        break
+
+            live_label = f"🔴 Live: {set_display}"
+            self.history_files[live_label] = live_path
+            options.append(live_label)
+
+        # 2. Past Drafts
+        if os.path.exists(constants.DRAFT_LOG_FOLDER):
+            files = []
+            for f in os.listdir(constants.DRAFT_LOG_FOLDER):
+                if f.startswith("DraftLog_") and f.endswith(".log"):
+                    filepath = os.path.join(constants.DRAFT_LOG_FOLDER, f)
+                    try:
+                        mtime = os.path.getmtime(filepath)
+                        files.append((f, filepath, mtime))
+                    except Exception:
+                        pass
+            files.sort(key=lambda x: x[2], reverse=True)
+
+            for f, filepath, mtime in files:
+                parts = f.replace(".log", "").split("_")
+                if len(parts) >= 4:
+                    card_set = parts[1]
+                    event = parts[2]
+                else:
+                    card_set = "UNKNOWN"
+                    event = "Draft"
+
+                dt_str = datetime.fromtimestamp(mtime).strftime("%m-%d %H:%M")
+                display_str = f"📂 {card_set} {event} ({dt_str})"
+                self.history_files[display_str] = filepath
+                options.append(display_str)
+
+        self.combo_history["values"] = options
+
+        # Determine current state to prevent overwriting "Missing Dataset" label
+        current_selection = self.vars["set_label"].get()
+        if "Missing Dataset" in current_selection:
+            return
+
+        current_log = os.path.basename(self.orchestrator.scanner.arena_file)
+        target_option = options[0] if options else ""
+
+        for opt, path in self.history_files.items():
+            if os.path.basename(path) == current_log:
+                target_option = opt
+                break
+
+        self.vars["set_label"].set(target_option)
+
+    def _on_history_select(self, event):
+        selection = self.vars["set_label"].get()
+        if selection in getattr(self, "history_files", {}):
+            filepath = self.history_files[selection]
+
+            # Disable dropdown and provide UX feedback
+            self.combo_history.configure(state="disabled")
+            self.vars["status_text"].set("Queuing Draft...")
+
+            if hasattr(self, "loading_overlay"):
+                # Clean the display name for the title
+                title_name = selection.replace("📂 ", "").replace("🔴 ", "")
+                self.loading_overlay.show(f"Loading: {title_name}")
+                self.loading_overlay.update_status("Queuing Draft...")
+
+            self.root.update_idletasks()
+
+            # Request background orchestrator to safely swap files
+            self.orchestrator.set_file_and_scan(filepath)
+
+            if self.tabs_visible and "🔴 Live" not in selection:
+                # Switch to Deck Suggester tab when reviewing old drafts
+                self.notebook.select(self.panel_suggest)
 
     def _toggle_tabs(self):
         if self.tabs_visible:
@@ -624,14 +781,8 @@ class DraftApp:
             self.orchestrator.scanner.lock.release()
 
         # 2. ADVISOR & SIGNAL MATH
-        from src.advisor.engine import DraftAdvisor
-        from src.signals import SignalCalculator
-
-        if self.configuration.settings.advisor_enabled:
-            advisor = DraftAdvisor(metrics, taken_cards)
-            recommendations = advisor.evaluate_pack(pack_cards, pi)
-        else:
-            recommendations = []
+        advisor = DraftAdvisor(metrics, taken_cards)
+        recommendations = advisor.evaluate_pack(pack_cards, pi)
 
         sig_calc = SignalCalculator(metrics)
         scores = {c: 0.0 for c in constants.CARD_COLORS}
@@ -721,6 +872,8 @@ class DraftApp:
         deck_metrics = get_deck_metrics(taken_cards)
         self.dashboard.update_stats(deck_metrics.distribution_all)
         self.dashboard.update_deck_balance(taken_cards)
+        self.dashboard.orchestrator = self.orchestrator
+        self.dashboard.update_pool_summary(taken_cards, metrics, draft_id)
 
         if self.overlay_window:
             self.overlay_window.update_data(
@@ -738,6 +891,7 @@ class DraftApp:
         for p in [
             self.panel_taken,
             self.panel_suggest,
+            self.panel_custom,
             self.panel_compare,
             self.panel_tiers,
         ]:
@@ -751,8 +905,6 @@ class DraftApp:
         self.current_missing_data = missing_cards
 
     def _calculate_signals(self, metrics):
-        from src.signals import SignalCalculator
-
         calc = SignalCalculator(metrics)
         history = self.orchestrator.scanner.retrieve_draft_history()
         scores = {c: 0.0 for c in constants.CARD_COLORS}
@@ -807,12 +959,22 @@ class DraftApp:
             update_detected = False
             while True:
                 try:
-                    self.orchestrator.update_queue.get_nowait()
-                    update_detected = True
+                    msg = self.orchestrator.update_queue.get_nowait()
+                    if isinstance(msg, dict) and "status" in msg:
+                        self.vars["status_text"].set(msg["status"])
+                        if hasattr(self, "loading_overlay"):
+                            self.loading_overlay.update_status(msg["status"])
+                        self.root.update_idletasks()
+                    elif msg == "REFRESH":
+                        update_detected = True
                 except queue.Empty:
                     break
 
             if update_detected:
+                # Re-enable the dropdown
+                if hasattr(self, "combo_history"):
+                    self.combo_history.configure(state="readonly")
+
                 # Check if event changed to update dropdowns
                 self._update_data_sources()
                 self._update_deck_filter_options()
@@ -832,7 +994,9 @@ class DraftApp:
             except:
                 pass
         except Exception as e:
-            logger.error(f"Update loop error: {e}")
+            logger.error(f"Logic Step Error: {e}")
+            if hasattr(self, "loading_overlay"):
+                self.loading_overlay.hide()
 
         self._schedule_update()
 
@@ -881,7 +1045,6 @@ class DraftApp:
 
             if not current_set:
                 self.dataset_controls_frame.pack_forget()
-                self.vars["set_label"].set("")
                 self._set_dropdown_options(
                     self.om_event, self.vars["selected_event"], []
                 )
@@ -930,7 +1093,7 @@ class DraftApp:
             # If no data is found for the event, clear dropdowns and alert the user
             if not available_events:
                 self.dataset_controls_frame.pack(side="right")
-                self.vars["set_label"].set(f"{display_name} (No Data)")
+                self.vars["set_label"].set(f"{display_name} (Missing Dataset)")
                 self._set_dropdown_options(
                     self.om_event, self.vars["selected_event"], []
                 )
@@ -940,6 +1103,7 @@ class DraftApp:
                 return
 
             self.vars["set_label"].set(display_name)
+            self._update_history_dropdown()
             self._set_dropdown_options(
                 self.om_event, self.vars["selected_event"], available_events
             )
@@ -1013,17 +1177,41 @@ class DraftApp:
         if evt in self.current_set_data_map and grp in self.current_set_data_map[evt]:
             path = self.current_set_data_map[evt][grp]
             current_loaded = self.configuration.card_data.latest_dataset
+
             if os.path.basename(path) != current_loaded:
-                self.orchestrator.scanner.retrieve_set_data(path)
-                self.configuration.card_data.latest_dataset = os.path.basename(path)
-                write_configuration(self.configuration)
+                # Immediately show the overlay since switching datasets forces Deck Suggester to rebuild
+                if hasattr(self, "loading_overlay"):
+                    self.loading_overlay.show(f"Evaluating {evt} ({grp})")
+                    self.loading_overlay.update_status("Processing dataset...")
+
+                self.root.update_idletasks()
+
+                self.vars["status_text"].set("Loading Dataset...")
+                try:
+                    self.orchestrator.scanner.retrieve_set_data(path)
+                    self.configuration.card_data.latest_dataset = os.path.basename(path)
+                    write_configuration(self.configuration)
+
+                    from src.card_logic import clear_deck_cache
+
+                    clear_deck_cache()
+                except Exception as e:
+                    logger.error(f"Dataset load error: {e}")
+
+                self.vars["status_text"].set("Ready")
+
+                self._update_data_sources()
                 self._update_deck_filter_options()
                 self.orchestrator.request_math_update()
+
                 self._refresh_ui_data()
 
     def _force_reload(self):
         """Perform a complete deep-scan of the Arena logs to rebuild the state."""
         self.vars["status_text"].set("Deep Scanning Log...")
+        if hasattr(self, "loading_overlay"):
+            self.loading_overlay.show("Reloading Application State")
+            self.loading_overlay.update_status("Deep Scanning Log...")
         self.root.update_idletasks()
 
         with self.orchestrator.scanner.lock:
@@ -1219,7 +1407,8 @@ class DraftApp:
 
     def _show_tooltip(self, card_name, widget, data_list):
         found = next(
-            (c for c in data_list if c[constants.DATA_FIELD_NAME] == card_name), None
+            (c for c in data_list if c.get(constants.DATA_FIELD_NAME) == card_name),
+            None,
         )
         if found:
             current_scale = constants.UI_SIZE_DICT.get(
@@ -1258,7 +1447,8 @@ class DraftApp:
             return
 
         found = next(
-            (c for c in data_list if c[constants.DATA_FIELD_NAME] == card_name), None
+            (c for c in data_list if c.get(constants.DATA_FIELD_NAME) == card_name),
+            None,
         )
         if not found:
             return
@@ -1333,14 +1523,18 @@ class DraftApp:
     def _read_draft_log(self):
         f = filedialog.askopenfilename(filetypes=(("Log", "*.log"), ("All", "*.*")))
         if f:
-            self.orchestrator.scanner.set_arena_file(f)
-            self._manual_refresh()
+            if hasattr(self, "loading_overlay"):
+                self.loading_overlay.show("Loading Draft Log")
+                self.loading_overlay.update_status("Queuing file...")
+            self.orchestrator.set_file_and_scan(f)
 
     def _read_player_log(self):
         f = filedialog.askopenfilename(filetypes=(("Log", "*.log"), ("All", "*.*")))
         if f:
-            self.orchestrator.scanner.set_arena_file(f)
-            self._manual_refresh()
+            if hasattr(self, "loading_overlay"):
+                self.loading_overlay.show("Loading Player.log")
+                self.loading_overlay.update_status("Queuing file...")
+            self.orchestrator.set_file_and_scan(f)
 
     def _export_csv(self):
         h = self.orchestrator.scanner.retrieve_draft_history()
@@ -1384,7 +1578,13 @@ class DraftApp:
 
             full_path = os.path.join(SETS_FOLDER, latest_file)
             if os.path.exists(full_path):
-                self.orchestrator.scanner.retrieve_set_data(full_path)
+                try:
+                    self.orchestrator.scanner.retrieve_set_data(full_path)
+                    from src.card_logic import clear_deck_cache
+
+                    clear_deck_cache()
+                except Exception:
+                    pass
 
         self._update_data_sources()
         self._update_deck_filter_options()
