@@ -6,7 +6,6 @@ import platform
 import subprocess
 from enum import Enum
 from io import BytesIO
-from PIL import ImageGrab
 from typing import List
 from src.constants import (
     LIMITED_TYPES_DICT,
@@ -149,15 +148,15 @@ def retrieve_local_set_list(codes=None, names=None):
             continue
 
         set_code = name_segments[0].upper()
+        cleaned_set_code = clean_string(set_code)
 
-        if cleaned_codes and set_code not in cleaned_codes:
+        if cleaned_codes and cleaned_set_code not in cleaned_codes:
             continue
 
-        # If names are provided, map the set_code to the human-readable name
         display_name = set_name
-        if names and cleaned_codes and set_code in cleaned_codes:
+        if names and cleaned_codes and cleaned_set_code in cleaned_codes:
             try:
-                display_name = list(names)[list(cleaned_codes).index(set_code)]
+                display_name = list(names)[list(cleaned_codes).index(cleaned_set_code)]
             except ValueError:
                 pass
 
@@ -238,7 +237,9 @@ def check_file_integrity(filename):
 
 def capture_screen_base64str(persist):
     """takes a screenshot and returns it as a base64 encoded string"""
-    screenshot = ImageGrab.grab()
+    from PIL import ImageGrab
+
+    screenshot = ImageGrab.grab(all_screens=True)
     buffered = BytesIO()
     screenshot.save(buffered, format="PNG")
     if persist:
@@ -308,8 +309,20 @@ def read_dataset_info(filename: str, codes=None, names=None):
     """Reads the meta section of a dataset file.
     Set codes are normalized so e.g. filename CUBE-POWERED matches list 'Cube - Powered'."""
     name_segments = filename.split("_")
-    normalized_codes = [normalize_set_code_for_match(c) for c in codes] if codes else None
-    if len(name_segments) == 4:
+    cleaned_codes = [clean_string(code) for code in codes] if codes else None
+
+    is_custom = False
+
+    # NEW: Handle Custom Datasets (5 segments: SET_EVENT_GROUP_CUSTOMSTAMP_Data.json)
+    if len(name_segments) == 5:
+        set_code = name_segments[0].upper()
+        event_type = name_segments[1]
+        user_group = name_segments[2]
+        # name_segments[3] is the "Custom-12345678" stamp
+        file_suffix = name_segments[4]
+        is_custom = True
+    # STANDARD: Official Datasets (4 segments: SET_EVENT_GROUP_Data.json)
+    elif len(name_segments) == 4:
         set_code = name_segments[0].upper()
         event_type = name_segments[1]
         user_group = name_segments[2]
@@ -317,18 +330,19 @@ def read_dataset_info(filename: str, codes=None, names=None):
     else:
         return ()
 
+    cleaned_set_code = clean_string(set_code)
+
     if (
-        (normalized_codes and normalize_set_code_for_match(set_code) not in normalized_codes)
+        (cleaned_codes and cleaned_set_code not in cleaned_codes)
         or (event_type not in LIMITED_TYPES_DICT)
         or (user_group not in LIMITED_GROUPS_LIST)
         or (file_suffix != SET_FILE_SUFFIX)
     ):
         return ()
 
-    if names and normalized_codes:
+    if names and cleaned_codes and cleaned_set_code in cleaned_codes:
         try:
-            idx = list(normalized_codes).index(normalize_set_code_for_match(set_code))
-            set_name = list(names)[idx]
+            set_name = list(names)[list(cleaned_codes).index(cleaned_set_code)]
         except ValueError:
             set_name = set_code
     else:
@@ -343,12 +357,21 @@ def read_dataset_info(filename: str, codes=None, names=None):
         else:
             start_date = json_data["meta"]["start_date"]
             end_date = json_data["meta"]["end_date"]
+
         collection_date = json_data["meta"].get("collection_date", "")
 
         if "game_count" in json_data["meta"]:
             game_count = int(json_data["meta"]["game_count"])
         else:
             game_count = 0
+
+        if is_custom:
+            try:
+                s = f"{start_date[5:7]}/{start_date[8:10]}"
+                e = f"{end_date[5:7]}/{end_date[8:10]}"
+                user_group = f"{user_group} ({s}-{e})"
+            except Exception:
+                user_group = f"{user_group} (Custom)"
 
         return (
             set_name,

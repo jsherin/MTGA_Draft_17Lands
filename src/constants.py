@@ -31,9 +31,9 @@ def get_resource_dir():
 BASE_DIR = get_base_dir()
 RESOURCE_DIR = get_resource_dir()
 
-APPLICATION_VERSION = "4.11"
-OLD_APPLICATION_VERSION = "4.11"
-PREVIOUS_APPLICATION_VERSION = "0410"
+APPLICATION_VERSION = "4.13"
+OLD_APPLICATION_VERSION = "4.13"
+PREVIOUS_APPLICATION_VERSION = "0412"
 
 FONT_SANS_SERIF = "Arial"
 FONT_MONO_SPACE = "Courier"
@@ -923,3 +923,7 @@ CARD_NAME_CORRECTIONS = {
     "Bespoke B": "Bespoke Bō",
     "Bespoke BÃ´": "Bespoke Bō",
 }
+
+# --- Remote ETL Pipeline ---
+REMOTE_MANIFEST_URL = "https://unrealities.github.io/MTGA_Draft_17Lands/manifest.json"
+REMOTE_DATASET_BASE_URL = "https://unrealities.github.io/MTGA_Draft_17Lands/"
