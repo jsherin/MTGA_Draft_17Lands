@@ -214,7 +214,7 @@ class Seventeenlands:
             "event_type": draft,
             "start_date": start_date,
             "end_date": end_date,
-            "combine_splash": True,
+            "combine_splash": "true",
         }
         if user_group and user_group.lower() != "all":
             params["user_group"] = user_group
