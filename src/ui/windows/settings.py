@@ -155,6 +155,7 @@ class SettingsWindow(tkinter.Toplevel):
         # Checkbox logic
         checkbox_keys = [
             "always_on_top",
+            "auto_sync_datasets",
             "card_colors_enabled",
             "auto_highest_enabled",
             "advisor_enabled",
