@@ -94,8 +94,6 @@ class Settings(BaseModel):
     auto_highest_enabled: bool = False
     advisor_enabled: bool = True
     draft_log_enabled: bool = True
-    p1p1_ocr_enabled: bool = True
-    save_screenshot_enabled: bool = False
     update_notifications_enabled: bool = True
     missing_notifications_enabled: bool = True
     auto_sync_datasets: bool = True
