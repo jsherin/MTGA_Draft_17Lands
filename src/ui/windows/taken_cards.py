@@ -228,8 +228,8 @@ class TakenCardsPanel(ttk.Frame):
                     raw_tags = card.get("tags", [])
                     if raw_tags:
                         icons_only = [
-                            constants.TAG_VISUALS.get(tag, tag).split(" ")[0]
-                            for tag in raw_tags
+                            constants.TAG_VISUALS.get(t, t).split(" ")[0]
+                            for t in raw_tags
                         ]
                         row_values.append(" ".join(icons_only))
                     else:

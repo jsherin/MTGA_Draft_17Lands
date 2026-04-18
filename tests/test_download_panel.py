@@ -5,7 +5,6 @@ Iron-clad validation for the Dataset Manager.
 
 import pytest
 import tkinter
-import time
 from unittest.mock import MagicMock, patch
 from src.ui.windows.download import DownloadWindow, DatasetArgs
 from src.limited_sets import SetInfo

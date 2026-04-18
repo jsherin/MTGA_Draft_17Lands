@@ -12,7 +12,7 @@ import threading
 import json
 
 from src import constants
-from src.card_logic import field_process_sort, row_color_tag, format_gihwr_column, format_gpwr_column
+from src.card_logic import format_gihwr_column, format_gpwr_column
 from src.mana_images import ManaImageCache
 from src.ui.styles import Theme
 from src.utils import open_file
@@ -37,7 +37,6 @@ class DashboardFrame(ttk.Frame):
         configuration,
         on_card_select,
         on_reconfigure_ui,
-        on_column_change=None,
         on_advisor_click=None,
         on_context_menu=None,
     ):
@@ -45,7 +44,6 @@ class DashboardFrame(ttk.Frame):
         self.configuration = configuration
         self.on_card_select = on_card_select
         self.on_reconfigure_ui = on_reconfigure_ui
-        self.on_column_change = on_column_change or on_reconfigure_ui
         self.on_advisor_click = on_advisor_click
         self.on_context_menu = on_context_menu
 
@@ -827,7 +825,7 @@ class DashboardFrame(ttk.Frame):
             self.pack_frame,
             view_id="pack_table",
             configuration=self.configuration,
-            on_update_callback=self.on_column_change,
+            on_update_callback=self.on_reconfigure_ui,
             height=1,
         )
         self.pack_manager.pack(fill="both", expand=True)
@@ -861,7 +859,7 @@ class DashboardFrame(ttk.Frame):
             self.missing_frame,
             view_id="missing_table",
             configuration=self.configuration,
-            on_update_callback=self.on_column_change,
+            on_update_callback=self.on_reconfigure_ui,
             height=1,
         )
         self.missing_manager.pack(fill="both", expand=True)

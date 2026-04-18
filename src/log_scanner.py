@@ -1092,9 +1092,6 @@ class ArenaScanner:
         data_sources = {}
         try:
             file_list, error_list = retrieve_local_set_list()
-            for error_string in error_list:
-                logger.error(error_string)
-
             if self.draft_type != constants.LIMITED_TYPE_UNKNOWN:
                 found_types = [
                     k

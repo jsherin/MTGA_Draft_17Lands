@@ -1,11 +1,9 @@
 import os
-import re
 import logging
 import threading
 import time
 import queue
 from src.configuration import write_configuration
-from src.utils import normalize_set_code_for_match
 
 logger = logging.getLogger(__name__)
 
@@ -257,4 +255,3 @@ class DraftOrchestrator(threading.Thread):
                     write_configuration(self.config)
                     return True
             return False
-

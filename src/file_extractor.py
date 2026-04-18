@@ -1181,11 +1181,7 @@ class FileExtractor(UIProgress):
         )
 
         tagger = ScryfallTagger()
-        tags = tagger.harvest_set_tags(set_code, progress_callback)
-        if tags:
-            harvested_tags, errors = tags
-        else:
-            return []
+        harvested_tags, errors = tagger.harvest_set_tags(set_code, progress_callback)
 
         # Inject into the combined data
         if "card_ratings" in self.combined_data:

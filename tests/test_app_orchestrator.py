@@ -37,8 +37,7 @@ class TestAppOrchestrator:
     def mock_scanner(self):
         scanner = MagicMock()
         scanner.retrieve_data_sources.return_value = {
-            "[ECL] PremierDraft (All)": "/mock/premier.json",
-            "[ECL] TradDraft (All)": "/mock/traddraft.json",
+            "[ECL] PremierDraft (All)": "/mock/premier.json"
         }
         scanner.retrieve_color_win_rate.return_value = {"Auto": "Auto", "WG": "WG"}
         scanner.retrieve_current_limited_event.return_value = ("ECL", "PremierDraft")
@@ -114,7 +113,6 @@ class TestAppOrchestrator:
 
             # Simulate changing the event
             app.vars["selected_event"].set("TradDraft")
-            root.update()
 
             # App should detect that traddraft.json != premier.json and retrieve it
             assert mock_scanner.retrieve_set_data.called

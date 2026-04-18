@@ -276,17 +276,8 @@ def clean_string(input_string: str, uppercase: bool = True) -> str:
     return input_string.upper() if uppercase else input_string
 
 
-def normalize_set_code_for_match(s: str) -> str:
-    """Canonical normalizer for comparing set codes (files, API names, event set).
-    Use this whenever matching a set code to the set list or to filenames.
-    E.g. 'CUBE-POWERED', 'Cube - Powered', 'Cube_Powered' -> 'CUBEPOWERED'.
-    If 17Lands or filenames use other separators (e.g. en-dash), add them here."""
-    return (s or "").upper().replace(" ", "").replace("-", "").replace("_", "")
-
-
 def read_dataset_info(filename: str, codes=None, names=None):
-    """Reads the meta section of a dataset file.
-    Set codes are normalized so e.g. filename CUBE-POWERED matches list 'Cube - Powered'."""
+    """Reads the meta section of a dataset file"""
     name_segments = filename.split("_")
     cleaned_codes = [clean_string(code) for code in codes] if codes else None
 

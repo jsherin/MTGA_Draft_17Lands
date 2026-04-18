@@ -91,8 +91,6 @@ class Settings(BaseModel):
     # Core Feature Toggles
     always_on_top: bool = False
     card_colors_enabled: bool = False
-    auto_highest_enabled: bool = False
-    advisor_enabled: bool = True
     draft_log_enabled: bool = True
     update_notifications_enabled: bool = True
     missing_notifications_enabled: bool = True

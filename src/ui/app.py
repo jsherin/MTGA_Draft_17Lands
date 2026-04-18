@@ -482,7 +482,6 @@ class DraftApp:
             self.configuration,
             self._on_card_select,
             self._refresh_ui_data,
-            on_column_change=self._repopulate_dashboard_only,
             on_advisor_click=self._show_tooltip_from_advisor,
             on_context_menu=self._on_card_context_menu,
         )
@@ -925,33 +924,6 @@ class DraftApp:
             for c, v in calc.calculate_pack_signals(pack_cards, entry["Pick"]).items():
                 scores[c] += v
         return scores
-
-    def _repopulate_dashboard_only(self):
-        """Lightweight refresh: repopulate pack/missing tables and overlay only (no advisor, no other panels). Used when column config changes."""
-        if not self._initialized or self._rebuilding_ui:
-            return
-        pack_cards = self.orchestrator.scanner.retrieve_current_pack_cards()
-        missing_cards = self.orchestrator.scanner.retrieve_current_missing_cards()
-        taken_cards = self.orchestrator.scanner.retrieve_taken_cards()
-        metrics = self.orchestrator.scanner.retrieve_set_metrics()
-        tier_data = self.orchestrator.scanner.retrieve_tier_data()
-        pk, pi = self.orchestrator.scanner.retrieve_current_pack_and_pick()
-        colors = filter_options(
-            taken_cards,
-            self.configuration.settings.deck_filter,
-            metrics,
-            self.configuration,
-        )
-        self.dashboard.update_pack_data(
-            pack_cards, colors, metrics, tier_data, pi, source_type="pack", recommendations=[]
-        )
-        self.dashboard.update_pack_data(
-            missing_cards, colors, metrics, tier_data, pi, source_type="missing"
-        )
-        if self.overlay_window:
-            self.overlay_window.update_data(
-                pack_cards, colors, metrics, tier_data, pi, []
-            )
 
     def _update_loop(self):
         """UI Poll Loop: Checks the orchestrator's queue for updates."""

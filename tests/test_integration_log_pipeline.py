@@ -32,8 +32,6 @@ class TestLogPipelineIntegration:
 
         monkeypatch.setattr("src.constants.SETS_FOLDER", str(temp_sets))
         monkeypatch.setattr("src.constants.DRAFT_LOG_FOLDER", str(temp_logs))
-        # utils imports SETS_FOLDER at load time; patch it so list/read use temp path
-        monkeypatch.setattr("src.utils.SETS_FOLDER", str(temp_sets))
         monkeypatch.setattr("src.constants.TEMP_FOLDER", str(temp_dir))
 
         log_file = tmp_path / "Player.log"
@@ -69,17 +67,6 @@ class TestLogPipelineIntegration:
         monkeypatch.setattr(
             "src.utils.retrieve_local_set_list", lambda *a, **k: mock_data
         )
-        # App imports retrieve_local_set_list at load time; patch at use site so UI sees mock
-        monkeypatch.setattr(
-            "src.ui.app.retrieve_local_set_list", lambda *a, **k: mock_data
-        )
-        # Real download runs; decline the "Would you like to update now?" dialog so test doesn't block
-        monkeypatch.setattr(
-            "tkinter.messagebox.askyesno",
-            lambda *a, **k: False,
-        )
-        # Never write to the real app config so tests do not reset user settings
-        monkeypatch.setattr("src.configuration.write_configuration", lambda *a, **k: None)
 
         config = Configuration()
         config.settings.arena_log_location = str(log_file)
@@ -130,11 +117,8 @@ class TestLogPipelineIntegration:
             app._update_loop()
             root.update()
 
-        # Wait for draft to be detected and set label (UI shows display name "Outlaws", not code "OTJ")
-        # Allow time for real 17lands update check + dialog decline
         ready = False
-        set_label = app.vars["set_label"].get
-        for _ in range(150):
+        for _ in range(50):
             root.update()
             # Verify the logic variable instead of the UI string
             if not app._loading and app.detected_set_code == "OTJ":

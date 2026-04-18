@@ -53,22 +53,29 @@ class Seventeenlands:
             if progress_callback:
                 elapsed = time.time() - start_time
                 if i > 0:
+                    # Calculate rolling average time per request
                     avg_time = elapsed / i
                     rem_time = avg_time * (len(target_colors) - i)
                 else:
+                    # Initial guess: ~1.5s delay + ~0.5s network time per archetype
                     rem_time = 2.0 * len(target_colors)
 
                 rem_mins = int(rem_time // 60)
                 rem_secs = int(rem_time % 60)
                 eta_str = f"{rem_mins}m {rem_secs}s" if rem_mins > 0 else f"{rem_secs}s"
+
                 msg = f"Downloading '{color}' ({i+1}/{len(target_colors)}) - {pct}% [ETA: {eta_str}]"
                 progress_callback(msg, pct)
 
+            # Fetch raw data (from cache or network)
             raw_data, from_cache = self._fetch_archetype_with_cache(
                 set_code, draft_format, start_date, end_date, color, user_group
             )
+
+            # Process into master map
             self._process_archetype_data(color, raw_data, master_card_map)
 
+            # Throttle ONLY if we actually hit the network, otherwise blast through cache!
             if not from_cache:
                 time.sleep(1.5)
 
@@ -114,7 +121,7 @@ class Seventeenlands:
         if user_group and user_group != "All":
             url += f"&user_group={user_group}"
 
-        response = requests.get(url, headers=self.HEADERS, timeout=30)
+        response = self.session.get(url, timeout=30)
         response.raise_for_status()
         data = response.json()
 
@@ -214,7 +221,7 @@ class Seventeenlands:
             "event_type": draft,
             "start_date": start_date,
             "end_date": end_date,
-            "combine_splash": "true",
+            "combine_splash": True,
         }
         if user_group and user_group.lower() != "all":
             params["user_group"] = user_group
