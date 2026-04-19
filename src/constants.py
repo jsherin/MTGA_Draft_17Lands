@@ -602,13 +602,6 @@ COLOR_NAMES_DICT = {
 }
 DECK_COLORS = [FILTER_OPTION_ALL_DECKS] + [k for k in COLOR_NAMES_DICT.keys()]
 
-# Canonical WUBRG order for deck filter: single, then two-color, then three-color
-_DECK_FILTER_WUBRG_ORDER = (
-    [CARD_COLOR_SYMBOL_WHITE, CARD_COLOR_SYMBOL_BLUE, CARD_COLOR_SYMBOL_BLACK, CARD_COLOR_SYMBOL_RED, CARD_COLOR_SYMBOL_GREEN]
-    + ["WU", "WB", "WR", "WG", "UB", "UR", "UG", "BR", "BG", "RG"]
-    + ["WUB", "WUR", "WUG", "WBR", "WBG", "WRG", "UBR", "UBG", "URG", "BRG"]
-)
-
 DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_COLORS
 
 # Two-color guild pairs for GIHWR breakdown display (WUBRG order)
