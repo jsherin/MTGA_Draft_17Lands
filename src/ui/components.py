@@ -844,6 +844,7 @@ class ModernTreeview(ttk.Treeview):
 
         def _k(t):
             cell = t[0][ci]
+            name_str = str(t[0][0]).lower()
             if column in ("gihwr", "gpwr") and gihwr_filter and isinstance(cell, str):
                 stripped = cell.replace("*", "").replace("%", "").strip()
                 if stripped and stripped not in ("NA", "-", ""):
