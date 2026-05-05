@@ -1,0 +1,231 @@
+{
+  "pipeline_run": {
+    "started_at": "2026-05-05T11:10:34.174376+00:00",
+    "completed_at": "2026-05-05T11:24:14.855931+00:00",
+    "duration_sec": 820.7,
+    "status": "SUCCESS"
+  },
+  "api_stats": {
+    "total_requests": 127,
+    "failed_requests": 0,
+    "cached_requests": 63
+  },
+  "intent": {
+    "scheduled_events": {
+      "SOS": {
+        "formats": [
+          "Sealed",
+          "PremierDraft",
+          "TradDraft",
+          "QuickDraft",
+          "PickTwoDraft"
+        ],
+        "start_date": "2026-04-21"
+      }
+    },
+    "archetypes_targeted": [
+      "All Decks",
+      "W",
+      "U",
+      "B",
+      "R",
+      "G",
+      "WU",
+      "UB",
+      "BR",
+      "RG",
+      "WG",
+      "WB",
+      "UR",
+      "BG",
+      "WR",
+      "UG",
+      "WUB",
+      "UBR",
+      "BRG",
+      "WRG",
+      "WUG",
+      "WBR",
+      "URG",
+      "WBG",
+      "WUR",
+      "UBG",
+      "WUBR",
+      "UBRG",
+      "WBRG",
+      "WURG",
+      "WUBG",
+      "WUBRG"
+    ],
+    "user_types_targeted": [
+      "All",
+      "Top"
+    ]
+  },
+  "execution_summary": {
+    "formats_updated": 10,
+    "formats_skipped": 0,
+    "total_output_kb": 1409,
+    "total_cards_rated": 12430,
+    "total_errors": 0,
+    "total_warnings": 0
+  },
+  "warehouse_state": {
+    "total_available_datasets": 28,
+    "available_keys": [
+      "TMT_QuickDraft_All",
+      "TMT_QuickDraft_Top",
+      "TMT_PremierDraft_All",
+      "TMT_PremierDraft_Top",
+      "TMT_TradDraft_All",
+      "TMT_TradDraft_Top",
+      "TMT_PickTwoDraft_All",
+      "TMT_PickTwoDraft_Top",
+      "NEO_PremierDraft_All",
+      "NEO_PremierDraft_Top",
+      "Cube - Powered_PremierDraft_All",
+      "Cube - Powered_PremierDraft_Top",
+      "Cube - Powered_TradDraft_All",
+      "Cube - Powered_TradDraft_Top",
+      "SOS_PickTwoDraft_All",
+      "SOS_PickTwoDraft_Top",
+      "SOS_PremierDraft_All",
+      "SOS_PremierDraft_Top",
+      "SOS_TradSealed_All",
+      "SOS_TradSealed_Top",
+      "SOS_Sealed_All",
+      "SOS_Sealed_Top",
+      "SOS_TradDraft_All",
+      "SOS_TradDraft_Top",
+      "TDM_QuickDraft_All",
+      "TDM_QuickDraft_Top",
+      "SOS_QuickDraft_All",
+      "SOS_QuickDraft_Top"
+    ]
+  },
+  "datasets_updated": [
+    {
+      "set": "SOS",
+      "format": "Sealed",
+      "user_group": "All",
+      "filename": "SOS_Sealed_All_Data.json.gz",
+      "size_kb": 131,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 38019,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "Sealed",
+      "user_group": "Top",
+      "filename": "SOS_Sealed_Top_Data.json.gz",
+      "size_kb": 101,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 506,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "PremierDraft",
+      "user_group": "All",
+      "filename": "SOS_PremierDraft_All_Data.json.gz",
+      "size_kb": 214,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 533207,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "PremierDraft",
+      "user_group": "Top",
+      "filename": "SOS_PremierDraft_Top_Data.json.gz",
+      "size_kb": 162,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 71855,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "TradDraft",
+      "user_group": "All",
+      "filename": "SOS_TradDraft_All_Data.json.gz",
+      "size_kb": 163,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 64065,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "TradDraft",
+      "user_group": "Top",
+      "filename": "SOS_TradDraft_Top_Data.json.gz",
+      "size_kb": 124,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 7717,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "QuickDraft",
+      "user_group": "All",
+      "filename": "SOS_QuickDraft_All_Data.json.gz",
+      "size_kb": 154,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 47757,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "QuickDraft",
+      "user_group": "Top",
+      "filename": "SOS_QuickDraft_Top_Data.json.gz",
+      "size_kb": 99,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 0,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "PickTwoDraft",
+      "user_group": "All",
+      "filename": "SOS_PickTwoDraft_All_Data.json.gz",
+      "size_kb": 162,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 55920,
+      "status": "success"
+    },
+    {
+      "set": "SOS",
+      "format": "PickTwoDraft",
+      "user_group": "Top",
+      "filename": "SOS_PickTwoDraft_Top_Data.json.gz",
+      "size_kb": 99,
+      "card_count": 1243,
+      "start_date": "2026-04-21",
+      "end_date": "2026-05-05",
+      "game_count": 0,
+      "status": "success"
+    }
+  ],
+  "datasets_skipped": [],
+  "errors": [],
+  "warnings": []
+}
