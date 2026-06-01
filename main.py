@@ -21,6 +21,22 @@ def _safe_setlocale(category, loc=None):
 locale.setlocale = _safe_setlocale
 
 import ttkbootstrap as ttk
+from ttkbootstrap.localization import msgs
+
+# Intercept TclErrors thrown by ttkbootstrap's localization engine on systems with outdated/missing msgcat Tcl packages.
+# This prevents a fatal crash on startup (e.g., invalid command name "::msgcat::mcmset") and allows the app to launch normally.
+_orig_initialize_localities = msgs.initialize_localities
+
+
+def _safe_initialize_localities(*args, **kwargs):
+    try:
+        _orig_initialize_localities(*args, **kwargs)
+    except Exception:
+        pass
+
+
+msgs.initialize_localities = _safe_initialize_localities
+
 import argparse
 import os
 import sys
@@ -56,10 +72,16 @@ def load_data(args, config, progress_callback):
 
     # 2. GAME FILE INDEXING
     progress_callback("Checking Game Files...")
-    db_loc = args.data or (retrieve_arena_directory(log_path) if log_path else None)
-    if db_loc:
-        config.settings.database_location = db_loc
-        write_configuration(config)
+
+    # Keep user's manually set location if it exists and is valid
+    db_loc = config.settings.database_location
+    if db_loc and os.path.exists(os.path.join(db_loc, "Downloads", "Raw")):
+        pass
+    else:
+        db_loc = args.data or (retrieve_arena_directory(log_path) if log_path else None)
+        if db_loc:
+            config.settings.database_location = db_loc
+            write_configuration(config)
 
     # 3. SYNC OFFICIAL DATASETS
     if config.settings.auto_sync_datasets:
