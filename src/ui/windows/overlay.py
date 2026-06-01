@@ -276,6 +276,22 @@ class CompactOverlay(tb.Toplevel):
     def _show_settings_menu(self):
         menu = tkinter.Menu(self, tearoff=0)
         filter_menu = tkinter.Menu(menu, tearoff=0)
+
+        def _add_filter_command(menu_obj, label, icon, callback):
+            # Tests may pass mocked/non-Tk image objects; gracefully fall back to text-only items.
+            try:
+                if icon is not None:
+                    menu_obj.add_command(
+                        label=label,
+                        image=icon,
+                        compound=tkinter.LEFT,
+                        command=callback,
+                    )
+                    return
+            except tkinter.TclError:
+                pass
+            menu_obj.add_command(label=label, command=callback)
+
         key_to_label = {
             key: label for label, key in self.app_context.deck_filter_map.items()
         }
@@ -283,20 +299,20 @@ class CompactOverlay(tb.Toplevel):
             if key in key_to_label:
                 label = key_to_label[key]
                 icon = self.app_context._filter_icon_for_key(key)
-                filter_menu.add_command(
-                    label=label,
-                    image=icon,
-                    compound=tkinter.LEFT,
-                    command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
+                _add_filter_command(
+                    filter_menu,
+                    label,
+                    icon,
+                    lambda l=label: self.app_context.vars["deck_filter"].set(l),
                 )
         for label, key in self.app_context.deck_filter_map.items():
             if key not in constants.DECK_FILTERS:
                 icon = self.app_context._filter_icon_for_key(key)
-                filter_menu.add_command(
-                    label=label,
-                    image=icon,
-                    compound=tkinter.LEFT,
-                    command=lambda l=label: self.app_context.vars["deck_filter"].set(l),
+                _add_filter_command(
+                    filter_menu,
+                    label,
+                    icon,
+                    lambda l=label: self.app_context.vars["deck_filter"].set(l),
                 )
         menu.add_cascade(label="Colors (Filter)", menu=filter_menu)
 

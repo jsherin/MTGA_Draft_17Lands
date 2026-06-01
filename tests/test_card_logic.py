@@ -4,7 +4,7 @@ import json
 from src import constants
 from src.set_metrics import SetMetrics
 from src.configuration import Configuration, Settings
-from src.card_logic import CardResult, format_gihwr_column
+from src.card_logic import CardResult, format_gihwr_column, format_gpwr_column
 from src.dataset import Dataset
 from src.tier_list import TierList, Meta, Rating
 from unittest.mock import MagicMock, patch
