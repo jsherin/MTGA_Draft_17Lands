@@ -238,6 +238,7 @@ class AppController:
         colors = filter_options(
             taken_cards, self.config.settings.deck_filter, metrics, self.config
         )
+        color_ratings = self.orchestrator.scanner.set_data.get_color_ratings()
 
         # PUSH DATA TO VIEWS
         self.app.top_bar.update_auto_detect_label(colors)
@@ -260,9 +261,16 @@ class AppController:
             "pack",
             recommendations,
             current_picked_cards,
+            color_ratings=color_ratings,
         )
         self.app.dashboard.update_pack_data(
-            missing_cards, colors, metrics, tier_data, pi, "missing"
+            missing_cards,
+            colors,
+            metrics,
+            tier_data,
+            pi,
+            "missing",
+            color_ratings=color_ratings,
         )
 
         deck_metrics = get_deck_metrics(taken_cards)

@@ -629,7 +629,7 @@ class DashboardFrame(ttk.Frame):
         source_type="pack",
         recommendations=None,
         picked_cards=None,
-        deck_filter_map=None,
+        color_ratings=None,
     ):
         tree = self.get_treeview(source_type)
         if not tree or not hasattr(tree, "active_fields"):
@@ -657,6 +657,12 @@ class DashboardFrame(ttk.Frame):
         if not cards:
             return
 
+        if color_ratings is None and hasattr(self, "orchestrator") and self.orchestrator:
+            try:
+                color_ratings = self.orchestrator.scanner.set_data.get_color_ratings()
+            except Exception:
+                color_ratings = None
+
         rec_map = {r.card_name: r for r in (recommendations or [])}
         processed_rows = []
         if self._mana_cache is None:
@@ -668,9 +674,11 @@ class DashboardFrame(ttk.Frame):
             stats = deck_colors.get(active_filter, {})
             rec = rec_map.get(name)
             gihwr_display, gihwr_sort = format_gihwr_column(
-                deck_colors, active_filter, deck_filter_map
+                deck_colors, active_filter, color_ratings
             )
-            gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
+            gpwr_display, _ = format_gpwr_column(
+                deck_colors, active_filter, color_ratings
+            )
             mana_photo = self._mana_cache.get_for_card(
                 card.get(constants.DATA_FIELD_MANA_COST)
                 or card.get(constants.DATA_FIELD_COLORS, [])

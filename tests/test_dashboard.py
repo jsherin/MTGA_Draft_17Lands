@@ -132,6 +132,30 @@ class TestDashboardFrame:
         assert "WU:" in gihwr_cell, "GIHWR column should use format_gihwr_column (filter prefix)"
         assert "AD:" in gihwr_cell, "GIHWR column should show All Decks as AD"
 
+    def test_update_pack_data_gihwr_shows_archetype_delta(self, root, mock_config):
+        """GIHWR cells should show (+/-) vs set color_ratings when provided."""
+        dashboard = DashboardFrame(root, mock_config, MagicMock(), MagicMock())
+        pack_tree = dashboard.pack_manager.tree
+        cards = [
+            {
+                constants.DATA_FIELD_NAME: "Test Card",
+                "deck_colors": {
+                    "WU": {constants.DATA_FIELD_GIHWR: 58.0},
+                    "All Decks": {constants.DATA_FIELD_GIHWR: 53.0},
+                },
+            },
+        ]
+        dashboard.update_pack_data(
+            cards=cards,
+            colors=["WU"],
+            metrics=MagicMock(),
+            tier_data={},
+            current_pick=1,
+            color_ratings={"WU": 55.0},
+        )
+        gihwr_cell = pack_tree.item(pack_tree.get_children()[0])["values"][1]
+        assert "(+3.0)" in gihwr_cell
+
     def test_zebra_striping_logic(self, root, mock_config):
         """Verify alternating bw_odd/bw_even tags."""
         mock_config.settings.card_colors_enabled = False

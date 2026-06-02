@@ -406,6 +406,30 @@ def test_format_gpwr_column_zero_excluded():
     display, sort_val = format_gpwr_column(deck_colors, "All Decks")
     assert sort_val == 0.0
     assert display == "-"
+
+
+def test_format_gpwr_column_includes_delta_for_filter_pair():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GPWR: 53.0},
+        "WU": {constants.DATA_FIELD_GPWR: 56.2},
+    }
+    color_ratings = {"WU": 55.0}
+    display, sort_val = format_gpwr_column(deck_colors, "WU", color_ratings)
+    assert "WU: 56.2 (+1.2)" in display
+    assert sort_val == 56.2 + 10000.0
+
+
+def test_format_gpwr_column_pair_entries_include_delta():
+    deck_colors = {
+        "All Decks": {constants.DATA_FIELD_GPWR: 53.0},
+        "UB": {constants.DATA_FIELD_GPWR: 54.2},
+    }
+    color_ratings = {"UB": 55.0}
+    display, _ = format_gpwr_column(deck_colors, "WU", color_ratings)
+    assert "UB: 54.2 (-0.8)" in display
+    assert "AD: 53.0" in display
+
+
 def test_get_functional_cmc_mechanics():
     """Verify the functional CMC parser handles Disguise, Spree, Cost Reduction, and missing data safely."""
     from src.card_logic import get_functional_cmc

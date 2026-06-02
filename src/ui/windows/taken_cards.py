@@ -220,7 +220,9 @@ class TakenCardsPanel(ttk.Frame):
                     )
                     row_values.append(gihwr_display)
                 elif field == "gpwr":
-                    gpwr_display, _ = format_gpwr_column(deck_colors, active_filter)
+                    gpwr_display, _ = format_gpwr_column(
+                        deck_colors, active_filter, color_ratings
+                    )
                     row_values.append(gpwr_display)
                 elif field == "colors":
                     row_values.append("".join(card.get("colors", [])))
