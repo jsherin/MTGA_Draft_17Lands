@@ -19,6 +19,7 @@ from src.ui.windows.custom_deck import CustomDeckPanel
 from src.ui.windows.compare import ComparePanel
 from src.ui.windows.download import DownloadWindow
 from src.ui.windows.tier_list_panel import TierListWindow
+from src.ui.windows.pack_history import PackHistoryPanel
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class AppLayoutManager:
 
         # Panels
         self.panel_taken = None
+        self.panel_pack_history = None
         self.panel_suggest = None
         self.panel_custom = None
         self.panel_compare = None
@@ -122,6 +124,9 @@ class AppLayoutManager:
         self.panel_taken = TakenCardsPanel(
             self.notebook, self.app.orchestrator.scanner, self.config
         )
+        self.panel_pack_history = PackHistoryPanel(
+            self.notebook, self.app.orchestrator.scanner, self.config
+        )
         self.panel_custom = CustomDeckPanel(
             self.notebook, self.app.orchestrator.scanner, self.config, self.app
         )
@@ -150,21 +155,21 @@ class AppLayoutManager:
 
         self.notebook.add(self.panel_data, text=" Datasets ")
         self.notebook.add(self.panel_taken, text=" Card Pool ")
+        self.notebook.add(self.panel_pack_history, text=" Pack History ")
         self.notebook.add(self.panel_suggest, text=" Deck Builder ")
         self.notebook.add(self.panel_custom, text=" Custom Deck ")
         self.notebook.add(self.panel_compare, text=" Comparisons ")
         self.notebook.add(self.panel_tiers, text=" Tier Lists ")
 
         # Safely trigger dataset UI refreshes if the panel supports it
-        self.notebook.bind(
-            "<<NotebookTabChanged>>",
-            lambda e: (
+        def _on_tab_changed(event):
+            selected_text = self.notebook.tab(self.notebook.select(), "text")
+            if hasattr(self.panel_data, "refresh") and "Datasets" in selected_text:
                 self.panel_data.refresh()
-                if hasattr(self.panel_data, "refresh")
-                and "Datasets" in self.notebook.tab(self.notebook.select(), "text")
-                else None
-            ),
-        )
+            elif "Pack History" in selected_text:
+                self.panel_pack_history.refresh()
+
+        self.notebook.bind("<<NotebookTabChanged>>", _on_tab_changed)
 
     def toggle_tabs(self):
         if self.tabs_visible:
