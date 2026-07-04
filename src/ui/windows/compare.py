@@ -9,6 +9,7 @@ from src import constants
 from src.ui.styles import Theme
 from src.ui.components import DynamicTreeviewManager, AutocompleteEntry, CardToolTip
 from src.card_logic import format_win_rate, row_color_tag, format_gihwr_column, format_gpwr_column
+from src.mana_images import ManaImageCache
 
 
 class ComparePanel(ttk.Frame):
@@ -17,6 +18,7 @@ class ComparePanel(ttk.Frame):
         self.draft = draft_manager
         self.configuration = configuration
         self.compare_list = []
+        self._mana_cache = None
         self._build_ui()
         self.refresh()
 
@@ -111,15 +113,22 @@ class ComparePanel(ttk.Frame):
         for item in t.get_children():
             t.delete(item)
 
+        if self._mana_cache is None:
+            self._mana_cache = ManaImageCache(size=16)
+
         for idx, card in enumerate(self.compare_list):
             row_values = []
 
-            # Apply row color tag if enabled, otherwise fallback to zebra index
             tag = "bw_odd" if idx % 2 == 0 else "bw_even"
             if self.configuration.settings.card_colors_enabled:
                 tag = row_color_tag(card.get(constants.DATA_FIELD_MANA_COST, ""))
 
             deck_colors = card.get("deck_colors", {})
+
+            mana_photo = self._mana_cache.get_for_card(
+                card.get(constants.DATA_FIELD_MANA_COST)
+                or card.get(constants.DATA_FIELD_COLORS, [])
+            )
 
             for field in self.table_manager.active_fields:
                 if field == "name":
@@ -178,6 +187,7 @@ class ComparePanel(ttk.Frame):
                 text="",
                 values=row_values,
                 tags=(tag,),
+                image=mana_photo,
             )
 
         if hasattr(t, "reapply_sort"):
