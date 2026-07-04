@@ -2,7 +2,8 @@
 src/ui/windows/pack_history.py
 Pack History Viewer.
 Shows all known cards from previous packs in the current pack round (P1, P2, P3).
-A dropdown selects the pack slot to view; resets automatically on new pack rounds.
+A dropdown (at most 8 entries) selects the pack/pick slot to view using P1P1-style
+labels; the list resets automatically when the pack round changes.
 """
 
 import tkinter
@@ -27,10 +28,9 @@ class PackHistoryPanel(ttk.Frame):
         self._mana_cache: Optional[ManaImageCache] = None
         self._last_known_pack_round: int = 0
 
-        # Populated in refresh(): list of (label, card_list) per known pack slot
+        # list of {"label": str, "cards": [...], "pick": int}
         self._pack_slots: List[Dict[str, Any]] = []
 
-        # The currently selected pack slot index (driven by the combobox)
         self._selected_slot_var = tkinter.StringVar()
 
         self._build_ui()
@@ -40,7 +40,6 @@ class PackHistoryPanel(ttk.Frame):
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        # --- Top control bar ---
         control_frame = ttk.Frame(self, padding=Theme.scaled_val(5))
         control_frame.pack(fill="x", pady=Theme.scaled_val((0, 5)))
 
@@ -55,7 +54,7 @@ class PackHistoryPanel(ttk.Frame):
             control_frame,
             textvariable=self._selected_slot_var,
             state="readonly",
-            width=28,
+            width=12,
         )
         self._combo.pack(side="left", padx=Theme.scaled_val(3))
         self._combo.bind("<<ComboboxSelected>>", self._on_slot_selected)
@@ -68,7 +67,6 @@ class PackHistoryPanel(ttk.Frame):
         )
         self._lbl_info.pack(side="left", padx=Theme.scaled_val(10))
 
-        # --- Card table ---
         self.table_manager = DynamicTreeviewManager(
             self,
             view_id="pack_history_table",
@@ -92,18 +90,22 @@ class PackHistoryPanel(ttk.Frame):
 
     def _rebuild_slot_list(self):
         """
-        Builds `self._pack_slots` from `draft_history` for the current pack round.
+        Builds self._pack_slots from retrieve_draft_history() for the current pack round.
 
-        Each entry in draft_history looks like:
-            {"Pack": <round 1-3>, "Pick": <pick number 1-N>, "Cards": [card_id, ...]}
+        Each history entry: {"Pack": int, "Pick": int, "Cards": [card_id, ...]}
 
-        We collect every history entry that belongs to the *current* pack round,
-        then resolve card IDs through `set_data.get_data_by_id`.  The player's own
-        current pack is excluded because it is already shown in the Live Pack table.
+        Rules:
+        - Only entries matching the current pack round are included.
+        - Deduplicated by pick number (first seen wins).
+        - Sorted numerically by pick number (ascending).
+        - At most 8 entries (one full pack round = 8 picks).
+        - Labels formatted as P<pack>P<pick> (e.g. P1P1, P1P2).
+        - All entries shown (current pick is NOT excluded).
+        - Dropdown selection and list reset when the pack round changes.
         """
-        current_pack, current_pick = self.draft.retrieve_current_pack_and_pick()
+        current_pack, _current_pick = self.draft.retrieve_current_pack_and_pick()
 
-        # Detect pack-round transition and auto-reset the dropdown selection
+        # Auto-reset on pack-round transition
         if current_pack != self._last_known_pack_round:
             self._last_known_pack_round = current_pack
             self._selected_slot_var.set("")
@@ -113,40 +115,47 @@ class PackHistoryPanel(ttk.Frame):
         # Keep only entries for the current pack round
         round_entries = [e for e in history if e.get("Pack") == current_pack]
 
-        # Build slot labels; skip the current pick slot (it duplicates the Live Pack)
-        slots = []
+        # Deduplicate by pick number (keep first occurrence)
+        seen_picks: set = set()
+        deduped = []
         for entry in round_entries:
+            pick_num = entry.get("Pick", 0)
+            if pick_num in seen_picks:
+                continue
+            seen_picks.add(pick_num)
+            deduped.append(entry)
+
+        # Sort ascending by pick number
+        deduped.sort(key=lambda e: e.get("Pick", 0))
+
+        # Cap at 8 entries (one full pack round)
+        deduped = deduped[:8]
+
+        slots = []
+        for entry in deduped:
             pick_num = entry.get("Pick", 0)
             card_ids = entry.get("Cards", [])
             if not card_ids:
                 continue
-            # Skip the entry that matches the current live pick
-            if pick_num == current_pick:
-                continue
             cards = self.draft.set_data.get_data_by_id(card_ids)
-            label = f"Pack {current_pack} — Slot {pick_num}  ({len(cards)} cards)"
+            label = f"P{current_pack}P{pick_num}"
             slots.append({"label": label, "cards": cards, "pick": pick_num})
 
         self._pack_slots = slots
 
-        # Rebuild combobox values
         labels = [s["label"] for s in self._pack_slots]
         self._combo["values"] = labels
 
         if not labels:
             self._selected_slot_var.set("")
-            self._lbl_info.config(
-                text="No previous pack data available for this round yet."
-            )
+            self._lbl_info.config(text="No pack data available for this round yet.")
         else:
-            # Preserve existing selection if still valid; otherwise default to last entry
             current_sel = self._selected_slot_var.get()
             if current_sel not in labels:
-                self._selected_slot_var.set(labels[-1])
-            info_text = (
-                f"Round P{current_pack}  •  {len(labels)} known pack slot(s)"
+                self._selected_slot_var.set(labels[0])
+            self._lbl_info.config(
+                text=f"Round P{current_pack}  •  {len(labels)} pack slot(s)"
             )
-            self._lbl_info.config(text=info_text)
 
     def _get_selected_cards(self) -> List[Dict[str, Any]]:
         """Returns the card list for the currently selected dropdown slot."""
@@ -182,7 +191,6 @@ class PackHistoryPanel(ttk.Frame):
         color_ratings = self.draft.set_data.get_color_ratings()
         tier_data = self.draft.retrieve_tier_data()
 
-        # Determine active color filter (mirrors TakenCardsPanel logic)
         try:
             from src.card_logic import filter_options
             raw_pool = self.draft.retrieve_taken_cards()
