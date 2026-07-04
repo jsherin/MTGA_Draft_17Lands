@@ -8,7 +8,7 @@ from tkinter import ttk
 from src import constants
 from src.ui.styles import Theme
 from src.ui.components import DynamicTreeviewManager, AutocompleteEntry, CardToolTip
-from src.card_logic import format_win_rate, row_color_tag
+from src.card_logic import format_win_rate, row_color_tag, format_gihwr_column, format_gpwr_column
 
 
 class ComparePanel(ttk.Frame):
@@ -99,6 +99,7 @@ class ComparePanel(ttk.Frame):
         raw_pool = self.draft.retrieve_taken_cards()
         metrics = self.draft.retrieve_set_metrics()
         tier_data = self.draft.retrieve_tier_data()
+        color_ratings = self.draft.set_data.get_color_ratings()
         colors = filter_options(
             raw_pool,
             self.configuration.settings.deck_filter,
@@ -118,11 +119,23 @@ class ComparePanel(ttk.Frame):
             if self.configuration.settings.card_colors_enabled:
                 tag = row_color_tag(card.get(constants.DATA_FIELD_MANA_COST, ""))
 
+            deck_colors = card.get("deck_colors", {})
+
             for field in self.table_manager.active_fields:
                 if field == "name":
                     row_values.append(card.get("name", ""))
                 elif field == "colors":
                     row_values.append("".join(card.get("colors", [])))
+                elif field == "gihwr":
+                    gihwr_display, _ = format_gihwr_column(
+                        deck_colors, active_color, color_ratings
+                    )
+                    row_values.append(gihwr_display)
+                elif field == "gpwr":
+                    gpwr_display, _ = format_gpwr_column(
+                        deck_colors, active_color, color_ratings
+                    )
+                    row_values.append(gpwr_display)
                 elif field == "tags":
                     raw_tags = card.get("tags", [])
                     if raw_tags:
@@ -145,7 +158,7 @@ class ComparePanel(ttk.Frame):
                         row_values.append("NA")
                 else:
                     val = (
-                        card.get("deck_colors", {})
+                        deck_colors
                         .get(active_color, {})
                         .get(field, 0.0)
                     )
