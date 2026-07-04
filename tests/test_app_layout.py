@@ -37,7 +37,8 @@ class TestAppLayoutManager:
         assert layout.dashboard is not None
 
         # Verify panels are injected into the notebook
-        assert len(layout.notebook.tabs()) == 6
+        # Tabs: Datasets, Card Pool, Pack History, Deck Builder, Custom Deck, Comparisons, Tier Lists
+        assert len(layout.notebook.tabs()) == 7
 
     def test_toggle_tabs_visibility(self, mock_app):
         """Verify that clicking 'Hide Tabs' collapses the lower pane correctly."""
