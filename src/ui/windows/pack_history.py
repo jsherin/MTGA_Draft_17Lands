@@ -202,7 +202,10 @@ class PackHistoryPanel(ttk.Frame):
             )
             active_filter = colors[0] if colors else "All Decks"
         except Exception:
+            raw_pool = []
             active_filter = "All Decks"
+
+        picked_names = {c.get(constants.DATA_FIELD_NAME, "") for c in (raw_pool or [])}
 
         t._gihwr_filter = active_filter
 
@@ -222,9 +225,12 @@ class PackHistoryPanel(ttk.Frame):
                 deck_colors, active_filter, color_ratings
             )
 
+            card_name = card.get(constants.DATA_FIELD_NAME, "Unknown")
+            display_name = f"* {card_name}" if card_name in picked_names else card_name
+
             for field in self.table_manager.active_fields:
                 if field == "name":
-                    row_values.append(card.get(constants.DATA_FIELD_NAME, "Unknown"))
+                    row_values.append(display_name)
                 elif field == "count":
                     row_values.append(card.get("count", 1))
                 elif field == "gihwr":
@@ -246,9 +252,8 @@ class PackHistoryPanel(ttk.Frame):
                 elif "TIER" in field:
                     if tier_data and field in tier_data:
                         tier_obj = tier_data[field]
-                        raw_name = card.get(constants.DATA_FIELD_NAME, "")
-                        if raw_name in tier_obj.ratings:
-                            row_values.append(tier_obj.ratings[raw_name].rating)
+                        if card_name in tier_obj.ratings:
+                            row_values.append(tier_obj.ratings[card_name].rating)
                         else:
                             row_values.append("NA")
                     else:
