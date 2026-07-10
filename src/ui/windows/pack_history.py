@@ -28,7 +28,7 @@ class PackHistoryPanel(ttk.Frame):
         self._mana_cache: Optional[ManaImageCache] = None
         self._last_known_pack_round: int = 0
 
-        # list of {"label": str, "cards": [...], "pick": int}
+        # list of {"label": str, "cards": [...], "pick": int, "picked_card_name": str}
         self._pack_slots: List[Dict[str, Any]] = []
 
         self._selected_slot_var = tkinter.StringVar()
@@ -102,6 +102,7 @@ class PackHistoryPanel(ttk.Frame):
         - Labels formatted as P<pack>P<pick> (e.g. P1P1, P1P2).
         - All entries shown (current pick is NOT excluded).
         - Dropdown selection and list reset when the pack round changes.
+        - picked_card_name derived by diffing consecutive Cards lists.
         """
         current_pack, _current_pick = self.draft.retrieve_current_pack_and_pick()
 
@@ -132,14 +133,31 @@ class PackHistoryPanel(ttk.Frame):
         deduped = deduped[:8]
 
         slots = []
-        for entry in deduped:
+        for i, entry in enumerate(deduped):
             pick_num = entry.get("Pick", 0)
             card_ids = entry.get("Cards", [])
             if not card_ids:
                 continue
             cards = self.draft.set_data.get_data_by_id(card_ids)
             label = f"P{current_pack}P{pick_num}"
-            slots.append({"label": label, "cards": cards, "pick": pick_num})
+
+            # Derive the picked card: the ID present in this slot but gone in the next
+            picked_card_name = ""
+            if i + 1 < len(deduped):
+                next_ids = set(deduped[i + 1].get("Cards", []))
+                current_ids = set(card_ids)
+                removed_ids = current_ids - next_ids
+                if removed_ids:
+                    resolved = self.draft.set_data.get_data_by_id(list(removed_ids))
+                    if resolved:
+                        picked_card_name = resolved[0].get(constants.DATA_FIELD_NAME, "")
+
+            slots.append({
+                "label": label,
+                "cards": cards,
+                "pick": pick_num,
+                "picked_card_name": picked_card_name,
+            })
 
         self._pack_slots = slots
 
@@ -157,13 +175,18 @@ class PackHistoryPanel(ttk.Frame):
                 text=f"Round P{current_pack}  •  {len(labels)} pack slot(s)"
             )
 
-    def _get_selected_cards(self) -> List[Dict[str, Any]]:
-        """Returns the card list for the currently selected dropdown slot."""
+    def _get_selected_slot(self) -> Optional[Dict[str, Any]]:
+        """Returns the full slot dict for the currently selected dropdown entry."""
         sel = self._selected_slot_var.get()
         for slot in self._pack_slots:
             if slot["label"] == sel:
-                return slot["cards"]
-        return []
+                return slot
+        return None
+
+    def _get_selected_cards(self) -> List[Dict[str, Any]]:
+        """Returns the card list for the currently selected dropdown slot."""
+        slot = self._get_selected_slot()
+        return slot["cards"] if slot else []
 
     # ------------------------------------------------------------------
     # Table rendering
@@ -180,9 +203,15 @@ class PackHistoryPanel(ttk.Frame):
         for item in t.get_children():
             t.delete(item)
 
-        cards = self._get_selected_cards()
+        slot = self._get_selected_slot()
+        if not slot:
+            return
+
+        cards = slot["cards"]
         if not cards:
             return
+
+        picked_card_name = slot.get("picked_card_name", "")
 
         if self._mana_cache is None:
             self._mana_cache = ManaImageCache(size=16)
@@ -202,10 +231,7 @@ class PackHistoryPanel(ttk.Frame):
             )
             active_filter = colors[0] if colors else "All Decks"
         except Exception:
-            raw_pool = []
             active_filter = "All Decks"
-
-        picked_names = {c.get(constants.DATA_FIELD_NAME, "") for c in (raw_pool or [])}
 
         t._gihwr_filter = active_filter
 
@@ -226,7 +252,7 @@ class PackHistoryPanel(ttk.Frame):
             )
 
             card_name = card.get(constants.DATA_FIELD_NAME, "Unknown")
-            display_name = f"* {card_name}" if card_name in picked_names else card_name
+            display_name = f"* {card_name}" if card_name == picked_card_name else card_name
 
             for field in self.table_manager.active_fields:
                 if field == "name":
