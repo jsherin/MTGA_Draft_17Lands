@@ -129,6 +129,9 @@ class TestComparePanel:
         panel.table.identify_region = MagicMock(return_value="cell")
         panel.table.selection = MagicMock(return_value=["item1"])
         panel.table.item = MagicMock(return_value={"text": "Lightning Bolt"})
+        # mock index() so the real Tkinter widget is never asked to look up
+        # the fake item ID "item1", which would raise TclError: Item item1 not found
+        panel.table.index = MagicMock(return_value=0)
 
         panel._on_selection(MagicMock(x=10, y=10))
 
