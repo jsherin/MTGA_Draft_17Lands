@@ -629,6 +629,8 @@ class ModernTreeview(ttk.Treeview):
         self._setup_headers(columns)
         self._setup_row_colors()
         self._setup_column_drag()
+        # Debounce timer for width persistence — avoids a write per pixel dragged
+        self._width_save_job = None
 
         self._pulse_step = 0
         self._last_picked_items = set()
@@ -725,6 +727,11 @@ class ModernTreeview(ttk.Treeview):
             anchor=tkinter.CENTER,
         )
 
+        # Load any previously saved widths for this view
+        saved_widths = {}
+        if self.config and self.view_id:
+            saved_widths = self.config.settings.column_widths.get(self.view_id, {})
+
         for i in columns:
             if i == "add_btn":
                 self.heading(i, text="+")
@@ -750,13 +757,58 @@ class ModernTreeview(ttk.Treeview):
                 display_text = l
 
             self.heading(i, text=display_text)
+
+            default_width = Theme.scaled_val(160) if i == "name" else Theme.scaled_val(50)
+            restored_width = saved_widths.get(i, default_width)
             self.column(
                 i,
-                width=Theme.scaled_val(160) if i == "name" else Theme.scaled_val(50),
+                width=restored_width,
                 minwidth=Theme.scaled_val(120) if i == "name" else Theme.scaled_val(30),
                 stretch=True,
                 anchor=tkinter.W,
             )
+
+        # Persist widths whenever the user finishes dragging a column separator.
+        # ButtonRelease-1 fires once the drag ends, so we only snapshot then rather
+        # than on every pixel of motion.
+        self.bind("<ButtonRelease-1>", self._on_column_resize, add="+")
+
+    def _on_column_resize(self, event):
+        """Snapshot all column widths after any mouse release on the header area."""
+        if not self.config or not self.view_id:
+            return
+        try:
+            # Only bother saving when the release was in the heading / separator region
+            region = self.identify_region(event.x, event.y)
+            if region not in ("heading", "separator"):
+                return
+        except Exception:
+            return
+
+        # Cancel any pending save so rapid drags collapse into a single write
+        if self._width_save_job is not None:
+            try:
+                self.after_cancel(self._width_save_job)
+            except Exception:
+                pass
+        self._width_save_job = self.after(150, self._save_column_widths)
+
+    def _save_column_widths(self):
+        """Write current column widths to config and flush to disk."""
+        self._width_save_job = None
+        if not self.config or not self.view_id:
+            return
+        try:
+            widths = {
+                col: self.column(col, "width")
+                for col in self["columns"]
+                if col != "add_btn"
+            }
+            self.config.settings.column_widths[self.view_id] = widths
+            from src.configuration import write_configuration
+            write_configuration(self.config)
+        except Exception:
+            pass
 
     def _setup_column_drag(self):
         self.bind("<Button-1>", self._on_header_press, add="+")
@@ -1235,6 +1287,10 @@ class DynamicTreeviewManager(ttk.Frame):
         if hasattr(self.config.settings, "column_display_orders"):
             if self.view_id in self.config.settings.column_display_orders:
                 del self.config.settings.column_display_orders[self.view_id]
+
+        # Clear saved widths for this table so defaults kick in cleanly
+        if self.view_id in self.config.settings.column_widths:
+            del self.config.settings.column_widths[self.view_id]
 
         self._persist()
 
