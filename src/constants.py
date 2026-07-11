@@ -640,7 +640,7 @@ DECK_COLORS = [FILTER_OPTION_ALL_DECKS] + [k for k in COLOR_NAMES_DICT.keys()]
 DECK_FILTERS = [FILTER_OPTION_AUTO] + DECK_COLORS
 
 # Two-color guild pairs for GIHWR breakdown display (WUBRG order)
-TWO_COLOR_PAIRS = ["WU", "UB", "BR", "RG", "GW", "WB", "BG", "UG", "UR", "WR"]
+TWO_COLOR_PAIRS = ["WU", "UB", "BR", "RG", "WG", "WB", "BG", "UG", "UR", "WR"]
 
 CARD_COLORS_DICT = {
     CARD_COLOR_LABEL_WHITE: CARD_COLOR_SYMBOL_WHITE,
