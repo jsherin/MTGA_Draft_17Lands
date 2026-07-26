@@ -1317,12 +1317,16 @@ class FileExtractor(UIProgress):
             period_stamp = "".join(
                 part.capitalize() for part in self.time_period.split("_")
             )
-            e_clean = self.end_date.replace("-", "")
-            custom_stamp = f"Custom-{period_stamp}-{e_clean}"
+
+            if self.time_period == "all_time":
+                custom_stamp = f"Custom-{period_stamp}"
+            else:
+                e_clean = self.end_date.replace("-", "")
+                custom_stamp = f"Custom-{period_stamp}-{e_clean}"
 
             output_file = "_".join(
                 (
-                    clean_string(self.selected_sets.seventeenlands[0]),
+                    self.selected_sets.seventeenlands[0],
                     self.draft,
                     self.user_group,
                     custom_stamp,
