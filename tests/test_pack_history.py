@@ -327,3 +327,34 @@ class TestEdgeCases:
         panel._rebuild_slot_list()
         scanner.set_data.get_data_by_id.assert_called_once_with([42, 43])
         assert len(panel._pack_slots[0]["cards"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# Card tooltip interaction
+# ---------------------------------------------------------------------------
+
+class TestCardSelection:
+    @patch("src.ui.windows.pack_history.CardToolTip.create")
+    def test_on_selection(self, mock_tooltip, panel):
+        """Verify clicking a card in the table launches the tooltip overlay."""
+        bolt = {"name": "Lightning Bolt", "deck_colors": {}}
+        panel._pack_slots = [
+            {
+                "label": "P1P1",
+                "cards": [bolt],
+                "pick": 1,
+                "picked_card_name": "Lightning Bolt",
+            }
+        ]
+        panel._selected_slot_var.set("P1P1")
+
+        panel.table.identify_region = MagicMock(return_value="cell")
+        panel.table.selection = MagicMock(return_value=["item1"])
+        panel.table.item = MagicMock(
+            return_value={"text": "", "values": ["* Lightning Bolt"]}
+        )
+
+        panel._on_selection(MagicMock(x=10, y=10))
+
+        mock_tooltip.assert_called_once()
+        assert mock_tooltip.call_args[0][1]["name"] == "Lightning Bolt"

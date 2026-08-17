@@ -1318,7 +1318,7 @@ class FileExtractor(UIProgress):
                 part.capitalize() for part in self.time_period.split("_")
             )
 
-            if self.time_period == "all_time":
+            if self.time_period == constants.TIME_PERIOD_OPTIONS["All Time"]:
                 custom_stamp = f"Custom-{period_stamp}"
             else:
                 e_clean = self.end_date.replace("-", "")

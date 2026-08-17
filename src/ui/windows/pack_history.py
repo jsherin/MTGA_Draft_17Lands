@@ -14,7 +14,7 @@ from src import constants
 from src.card_logic import format_gihwr_column, format_gpwr_column, format_win_rate, row_color_tag
 from src.mana_images import ManaImageCache
 from src.ui.styles import Theme
-from src.ui.components import DynamicTreeviewManager
+from src.ui.components import DynamicTreeviewManager, CardToolTip
 
 
 class PackHistoryPanel(ttk.Frame):
@@ -34,6 +34,10 @@ class PackHistoryPanel(ttk.Frame):
         self._selected_slot_var = tkinter.StringVar()
 
         self._build_ui()
+
+    @property
+    def table(self) -> ttk.Treeview:
+        return self.table_manager.tree if hasattr(self, "table_manager") else None
 
     # ------------------------------------------------------------------
     # UI Construction
@@ -196,9 +200,13 @@ class PackHistoryPanel(ttk.Frame):
         self._update_table()
 
     def _update_table(self):
-        t = self.table_manager.tree if hasattr(self, "table_manager") else None
+        t = self.table
         if t is None:
             return
+
+        if not getattr(t, "_selection_bound", False):
+            t.bind("<ButtonRelease-1>", self._on_selection, add="+")
+            t._selection_bound = True
 
         for item in t.get_children():
             t.delete(item)
@@ -329,3 +337,46 @@ class PackHistoryPanel(ttk.Frame):
 
         if hasattr(t, "reapply_sort"):
             t.reapply_sort()
+
+    def _on_selection(self, event):
+        if hasattr(event, "x") and hasattr(event, "y"):
+            region = self.table.identify_region(event.x, event.y)
+            if region not in ("tree", "cell"):
+                return
+
+        sel = self.table.selection()
+        if not sel:
+            return
+
+        item = self.table.item(sel[0])
+        card_name = item.get("text")
+
+        if not card_name:
+            item_vals = item["values"]
+            try:
+                name_idx = self.table_manager.active_fields.index("name")
+                card_name = (
+                    str(item_vals[name_idx])
+                    .replace("⭐ ", "")
+                    .replace("[+] ", "")
+                    .replace("*", "")
+                    .strip()
+                )
+            except ValueError:
+                return
+
+        card = next(
+            (
+                c
+                for c in self._get_selected_cards()
+                if c.get(constants.DATA_FIELD_NAME) == card_name
+            ),
+            None,
+        )
+        if card:
+            CardToolTip.create(
+                self.table,
+                card,
+                self.configuration.features.images_enabled,
+                Theme.current_scale,
+            )
