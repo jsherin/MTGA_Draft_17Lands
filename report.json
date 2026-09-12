@@ -1,0 +1,370 @@
+{
+  "pipeline_run": {
+    "started_at": "2026-09-12T13:13:57.220264+00:00",
+    "completed_at": "2026-09-12T13:41:22.514937+00:00",
+    "duration_sec": 1645.3,
+    "status": "PARTIAL_SUCCESS"
+  },
+  "api_stats": {
+    "total_requests": 300,
+    "failed_requests": 0,
+    "cached_requests": 99
+  },
+  "intent": {
+    "scheduled_events": {
+      "HOB": {
+        "formats": [
+          "TradDraft",
+          "QualifierPlayIn",
+          "PremierDraft",
+          "PickTwoDraft",
+          "ContenderDraft",
+          "LimitedOpen"
+        ],
+        "start_date": "2026-08-11"
+      },
+      "MH3": {
+        "formats": [
+          "PremierDraft"
+        ],
+        "start_date": "2026-09-08"
+      },
+      "Mixed-Up": {
+        "formats": [
+          "PremierDraft"
+        ],
+        "start_date": "2026-09-04"
+      },
+      "Cube - Powered": {
+        "formats": [
+          "PremierDraft",
+          "TradDraft"
+        ],
+        "start_date": "2026-09-08"
+      }
+    },
+    "archetypes_targeted": [
+      "All Decks",
+      "W",
+      "U",
+      "B",
+      "R",
+      "G",
+      "WU",
+      "UB",
+      "BR",
+      "RG",
+      "WG",
+      "WB",
+      "UR",
+      "BG",
+      "WR",
+      "UG",
+      "WUB",
+      "UBR",
+      "BRG",
+      "WRG",
+      "WUG",
+      "WBR",
+      "URG",
+      "WBG",
+      "WUR",
+      "UBG",
+      "WUBR",
+      "UBRG",
+      "WBRG",
+      "WURG",
+      "WUBG",
+      "WUBRG"
+    ],
+    "user_types_targeted": [
+      "All",
+      "Top"
+    ]
+  },
+  "execution_summary": {
+    "formats_updated": 13,
+    "formats_skipped": 1,
+    "total_output_kb": 1805,
+    "total_cards_rated": 17307,
+    "total_errors": 1,
+    "total_warnings": 6
+  },
+  "warehouse_state": {
+    "total_available_datasets": 61,
+    "available_keys": [
+      "TMT_QuickDraft_All",
+      "TMT_QuickDraft_Top",
+      "TMT_PremierDraft_All",
+      "TMT_PremierDraft_Top",
+      "TMT_TradDraft_All",
+      "TMT_TradDraft_Top",
+      "TMT_PickTwoDraft_All",
+      "TMT_PickTwoDraft_Top",
+      "NEO_PremierDraft_All",
+      "NEO_PremierDraft_Top",
+      "Cube - Powered_PremierDraft_All",
+      "Cube - Powered_PremierDraft_Top",
+      "Cube - Powered_TradDraft_All",
+      "Cube - Powered_TradDraft_Top",
+      "SOS_PickTwoDraft_All",
+      "SOS_PickTwoDraft_Top",
+      "SOS_PremierDraft_All",
+      "SOS_PremierDraft_Top",
+      "SOS_TradSealed_All",
+      "SOS_TradSealed_Top",
+      "SOS_Sealed_All",
+      "SOS_Sealed_Top",
+      "SOS_TradDraft_All",
+      "SOS_TradDraft_Top",
+      "TDM_QuickDraft_All",
+      "TDM_QuickDraft_Top",
+      "SOS_QuickDraft_All",
+      "SOS_QuickDraft_Top",
+      "EOE_QuickDraft_All",
+      "EOE_QuickDraft_Top",
+      "SOS_ContenderDraft_All",
+      "SOS_ContenderDraft_Top",
+      "STX_PremierDraft_All",
+      "STX_PremierDraft_Top",
+      "TLA_PremierDraft_All",
+      "TLA_PremierDraft_Top",
+      "MKM_QuickDraft_All",
+      "MKM_QuickDraft_Top",
+      "TDM_PremierDraft_All",
+      "TDM_PremierDraft_Top",
+      "TDM_Sealed_All",
+      "TDM_Sealed_Top",
+      "FDN_Sealed_All",
+      "FDN_Sealed_Top",
+      "FIN_PremierDraft_All",
+      "FIN_PremierDraft_Top",
+      "BLB_QuickDraft_All",
+      "BLB_QuickDraft_Top",
+      "HOB_PickTwoDraft_All",
+      "HOB_PickTwoDraft_Top",
+      "HOB_PremierDraft_All",
+      "HOB_PremierDraft_Top",
+      "HOB_ContenderDraft_All",
+      "HOB_ContenderDraft_Top",
+      "HOB_Sealed_All",
+      "HOB_TradDraft_All",
+      "HOB_TradDraft_Top",
+      "LTR_PremierDraft_All",
+      "LTR_PremierDraft_Top",
+      "MH3_PremierDraft_All",
+      "MH3_PremierDraft_Top"
+    ]
+  },
+  "datasets_updated": [
+    {
+      "set": "HOB",
+      "format": "TradDraft",
+      "user_group": "All",
+      "filename": "HOB_TradDraft_All_Data.json.gz",
+      "size_kb": 114,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 70621,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "TradDraft",
+      "user_group": "Top",
+      "filename": "HOB_TradDraft_Top_Data.json.gz",
+      "size_kb": 82,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 6403,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "PremierDraft",
+      "user_group": "All",
+      "filename": "HOB_PremierDraft_All_Data.json.gz",
+      "size_kb": 144,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 472144,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "PremierDraft",
+      "user_group": "Top",
+      "filename": "HOB_PremierDraft_Top_Data.json.gz",
+      "size_kb": 87,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 52153,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "PickTwoDraft",
+      "user_group": "All",
+      "filename": "HOB_PickTwoDraft_All_Data.json.gz",
+      "size_kb": 136,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 177746,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "PickTwoDraft",
+      "user_group": "Top",
+      "filename": "HOB_PickTwoDraft_Top_Data.json.gz",
+      "size_kb": 83,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 7240,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "ContenderDraft",
+      "user_group": "All",
+      "filename": "HOB_ContenderDraft_All_Data.json.gz",
+      "size_kb": 108,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 38778,
+      "status": "success"
+    },
+    {
+      "set": "HOB",
+      "format": "ContenderDraft",
+      "user_group": "Top",
+      "filename": "HOB_ContenderDraft_Top_Data.json.gz",
+      "size_kb": 76,
+      "card_count": 1158,
+      "start_date": "2026-08-11",
+      "end_date": "2026-09-12",
+      "game_count": 0,
+      "status": "success"
+    },
+    {
+      "set": "MH3",
+      "format": "PremierDraft",
+      "user_group": "All",
+      "filename": "MH3_PremierDraft_All_Data.json.gz",
+      "size_kb": 264,
+      "card_count": 1298,
+      "start_date": "2024-06-11",
+      "end_date": "2026-09-12",
+      "game_count": 965163,
+      "status": "success"
+    },
+    {
+      "set": "MH3",
+      "format": "PremierDraft",
+      "user_group": "Top",
+      "filename": "MH3_PremierDraft_Top_Data.json.gz",
+      "size_kb": 122,
+      "card_count": 1298,
+      "start_date": "2024-06-11",
+      "end_date": "2026-09-12",
+      "game_count": 162292,
+      "status": "success"
+    },
+    {
+      "set": "Cube - Powered",
+      "format": "PremierDraft",
+      "user_group": "All",
+      "filename": "Cube - Powered_PremierDraft_All_Data.json.gz",
+      "size_kb": 206,
+      "card_count": 1847,
+      "start_date": "2026-09-08",
+      "end_date": "2026-09-12",
+      "game_count": 0,
+      "status": "success"
+    },
+    {
+      "set": "Cube - Powered",
+      "format": "PremierDraft",
+      "user_group": "Top",
+      "filename": "Cube - Powered_PremierDraft_Top_Data.json.gz",
+      "size_kb": 185,
+      "card_count": 1753,
+      "start_date": "2026-09-08",
+      "end_date": "2026-09-12",
+      "game_count": 0,
+      "status": "success"
+    },
+    {
+      "set": "Cube - Powered",
+      "format": "TradDraft",
+      "user_group": "All",
+      "filename": "Cube - Powered_TradDraft_All_Data.json.gz",
+      "size_kb": 198,
+      "card_count": 1847,
+      "start_date": "2026-09-08",
+      "end_date": "2026-09-12",
+      "game_count": 0,
+      "status": "success"
+    }
+  ],
+  "datasets_skipped": [
+    {
+      "set": "Cube - Powered",
+      "format": "TradDraft",
+      "reason": "Failed validation, kept prior data: Every sampled card has a 0% 'All Decks' win rate despite non-zero samples -- win-rate fields were not populated."
+    }
+  ],
+  "errors": [
+    {
+      "time": "2026-09-12T13:41:22.514105+00:00",
+      "level": "ERROR",
+      "logger": "__main__",
+      "message": "   [Validation] Cube - Powered TradDraft (Top): Every sampled card has a 0% 'All Decks' win rate despite non-zero samples -- win-rate fields were not populated."
+    }
+  ],
+  "warnings": [
+    {
+      "time": "2026-09-12T13:17:32.339504+00:00",
+      "level": "WARNING",
+      "logger": "__main__",
+      "message": "No baseline data for HOB QualifierPlayIn (All)."
+    },
+    {
+      "time": "2026-09-12T13:17:48.279139+00:00",
+      "level": "WARNING",
+      "logger": "__main__",
+      "message": "No baseline data for HOB QualifierPlayIn (Top)."
+    },
+    {
+      "time": "2026-09-12T13:28:33.042689+00:00",
+      "level": "WARNING",
+      "logger": "__main__",
+      "message": "No baseline data for HOB LimitedOpen (All)."
+    },
+    {
+      "time": "2026-09-12T13:28:49.549344+00:00",
+      "level": "WARNING",
+      "logger": "__main__",
+      "message": "No baseline data for HOB LimitedOpen (Top)."
+    },
+    {
+      "time": "2026-09-12T13:37:02.570222+00:00",
+      "level": "WARNING",
+      "logger": "__main__",
+      "message": "No baseline data for Mixed-Up PremierDraft (All)."
+    },
+    {
+      "time": "2026-09-12T13:37:17.056076+00:00",
+      "level": "WARNING",
+      "logger": "__main__",
+      "message": "No baseline data for Mixed-Up PremierDraft (Top)."
+    }
+  ]
+}
