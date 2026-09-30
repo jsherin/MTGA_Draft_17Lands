@@ -125,10 +125,12 @@ class Seventeenlands:
         # param and a time_period preset (ALL_TIME, LATEST_EVENT, ...). The old
         # /card_ratings/data route still answers 200 but ignores the colors and
         # time_period filters, so it must not be used.
-        # NOTE: Do NOT call .upper() on set_code here. The 17Lands API is
-        # case-sensitive for Cube expansion strings (e.g. "Cube - Planar").
-        # Uppercasing breaks new cube events that lack legacy case-folding on
-        # the server side.
+        #
+        # `expansion` is matched case-sensitively by 17Lands and must be sent
+        # exactly as listed by /data/filters. Regular sets are already
+        # uppercase codes, but 'Cube - Powered', 'Cube', 'Cube - Planar',
+        # 'Chaos', 'Ravnica' and 'Remix - Artifacts' are not; uppercasing them
+        # returns 200 with an empty list (and '0 cards matched' in the UI).
         url = (
             f"{self.URL_BASE}/api/card_data?expansion={set_code}"
             f"&event_type={draft_format}&time_period={time_period}"
