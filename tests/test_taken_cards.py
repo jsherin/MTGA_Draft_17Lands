@@ -82,10 +82,13 @@ class TestTakenCardsPanel:
 
     @staticmethod
     def _gihwr_values(panel):
+        # Name lives in the values tuple (#0/text holds mana icons).
         tree = panel.table
-        idx = panel.table_manager.active_fields.index("gihwr")
+        fields = panel.table_manager.active_fields
+        name_idx = fields.index("name")
+        gihwr_idx = fields.index("gihwr")
         return {
-            tree.item(i)["text"]: str(tree.item(i)["values"][idx])
+            tree.item(i)["values"][name_idx]: str(tree.item(i)["values"][gihwr_idx])
             for i in tree.get_children()
         }
 
@@ -232,14 +235,14 @@ class TestTakenCardsPanel:
 
         assert panel.color_filter.selected_key == constants.FILTER_OPTION_FOLLOW
         assert panel.active_color == "RG"
-        assert self._gihwr_values(panel)["Aven"] == "50.0"
+        assert self._gihwr_values(panel)["Aven"].startswith("RG: 50.0")
         assert self._status(panel) == "(Deck Filter: Gruul 52.0%)"
 
         # A top-bar change is picked up on the next refresh.
         config.settings.deck_filter = "UB"
         panel.refresh()
         assert panel.active_color == "UB"
-        assert self._gihwr_values(panel)["Aven"] == "60.0"
+        assert self._gihwr_values(panel)["Aven"].startswith("UB: 60.0")
         assert self._status(panel) == "(Deck Filter: Dimir 55.0%)"
 
     def test_color_filter_menu_lists_follow_first(self, root, mock_draft):
@@ -258,7 +261,7 @@ class TestTakenCardsPanel:
 
         assert panel.color_filter.selected_key == "UB"
         assert panel.active_color == "UB"
-        assert self._gihwr_values(panel)["Aven"] == "60.0"
+        assert self._gihwr_values(panel)["Aven"].startswith("UB: 60.0")
         assert config.settings.deck_filter == "RG"  # advisor filter untouched
         assert self._status(panel) == ""  # dropdown already names the pair
 

@@ -29,7 +29,7 @@ from src.ui.styles import Theme
 
 def make_config(sort_states=None):
     """Returns a minimal config object with optional pre-populated sort states."""
-    settings = SimpleNamespace()
+    settings = SimpleNamespace(column_widths={})
     if sort_states is not None:
         settings.table_sort_states = dict(sort_states)
     # No table_sort_states attribute → tests hasattr() branch in __init__/_handle_sort

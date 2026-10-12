@@ -84,6 +84,8 @@ class TestDownloadPanel:
                 "Games",
             ]
         }
+        # Real dict so ModernTreeview column width restore gets ints, not MagicMocks
+        config.settings.column_widths = {}
         return config
 
     def test_set_metadata_sync(self, root, mock_sets_data, config):
